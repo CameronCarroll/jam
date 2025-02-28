@@ -27,6 +27,7 @@ workspace.read_config(CONFIG_FILE)
 projectdump = false
 chatloop = false
 projectedit = false
+execution_plan = false
 
 parser = OptionParser.new do |parser|
 parser.banner = "Usage: jam [command]"
@@ -40,6 +41,9 @@ parser.on("projects", "Make updates to project entries") do
   projectedit = true
   parser.banner = "Usage: jam projects [argument]"
   parser.on("-n NAME", "--new NAME", "Add a name for the project entry") { |_name| name = _name}
+end
+parser.on("plan", "Generate an execution plan from the current workspace config") do
+  execution_plan = true
 end
 end
 
@@ -125,4 +129,8 @@ if projectedit
       puts "Really terrible choice"
     end
   end
+end
+
+if execution_plan
+  puts workspace.generate_execution_plan
 end

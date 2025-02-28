@@ -1,3 +1,6 @@
+class Error < Exception; end
+class ConfigError < Error; end
+
 # Represents a workspace that contains multiple projects.
 #
 # A workspace is the top-level container for projects and handles
@@ -118,28 +121,27 @@ class Workspace
     def read_config(config_path) : Nil
       begin
         jason_content = File.read(CONFIG_FILE)
-        projects_data = Array(Hash(String, String)).from_json(jason_content)
-        if projects_data.is_a?(Array)
-          projects_data.each do |project_hash|
-            if project_hash.is_a?(Hash)
-              project_name = project_hash["name"]
-              project_description = project_hash["description"]
-      
-              if project_name.is_a?(String)
-                project = Project.new(project_name, project_description)
-                self.add_project(project)
-              else
-                puts "Error with project name field."
-                puts "Problematic data: #{project_hash}"
-              end
-            else
-              puts "Error with project data hash."
-              puts "Problematic data: #{project_hash}"
-            end
-          end
-        else
-          puts "Error with JSON data, expected array of projects."
+        projects_data = Array(Hash(String, String | Array(String))).from_json(jason_content)
+        raise ConfigError.new("Expected an array of hashes") unless projects_data.is_a?(Array)
+        projects_data.each do |hash|
+          raise ConfigError.new("Expected an array of hashes") unless hash.is_a?(Hash)
+          id = hash["id"]
+          raise ConfigError.new("Expected a string ID") unless id.is_a?(String)
+          name = hash["name"]
+          raise ConfigError.new("Expected a string name") unless name.is_a?(String)
+          description = hash["description"]
+          raise ConfigError.new("Expected a string description") unless description.is_a?(String)
+          predecessors = hash["predecessors"]
+          raise ConfigError.new("Expected a an array of strings for predecessors") unless predecessors.is_a?(Array(String))
+          successors = hash["successors"]
+          raise ConfigError.new("Expected a an array of strings for successors") unless successors.is_a?(Array(String))
+
+          project = Project.new(id, name, description, predecessors, successors)
+          self.add_project(project)
         end
+      rescue e : ConfigError
+        puts "Error loading config file: #{e}"
+        puts "Config is located at: #{CONFIG_FILE}"
       rescue e : File::Error
         puts "Error reading/parsing JSON file: #{e}"
         puts "Problematic path: #{CONFIG_FILE}"
@@ -193,10 +195,10 @@ class Workspace
 
     # Get all successors for a given project
     #
-    # @param project_id [String] ID of the project to query for
+    # @param id [String] ID of the project to query for
     # @return [Array(Project)] List of successor project objects
-    def get_successors(project_id : String) : Array(Project)
-      project = get_project_by_id(project_id)
+    def get_successors(id : String) : Array(Project)
+      project = get_project_by_id(id)
       return [] of Project unless project
 
       project.successors.compact_map { |id| get_project_by_id(id) }
@@ -204,10 +206,10 @@ class Workspace
 
     # Get all predecessors for a given project
     #
-    # @param project_id [String] ID of the project to query for
+    # @param id [String] ID of the project to query for
     # @return [Array(Project)] List of predecessors project objects
-    def get_predecessors(project_id : String) : Array(Project)
-      project = get_project_by_id(project_id)
+    def get_predecessors(id : String) : Array(Project)
+      project = get_project_by_id(id)
       return [] of Project unless project
       
       project.predecessors.compact_map { |id| get_project_by_id(id) }
@@ -260,6 +262,67 @@ class Workspace
               result += "    - Unknown project (#{succ_id})\n"
             end
           end
+        end
+        
+        result += "\n"
+      end
+      
+      return result
+    end
+
+    # Return a topologically sorted list of projects
+    # ie, sorted in dependency order
+    #
+    # @return [Array(Project)] List of projects sorted in dependency order
+    def get_project_execution_order : Array(Project)
+      # Create a copy of the projects to work with
+      remaining_projects = @projects.dup
+      result = [] of Project
+      
+      # Keep processing until all projects are in the result
+      while !remaining_projects.empty?
+        # Find projects with no unprocessed predecessors
+        ready_projects = remaining_projects.select do |project|
+          project.predecessors.all? do |pred_id|
+            # Either the predecessor is already in the result, or it doesn't exist
+            result.any? { |p| p.id == pred_id } || !get_project_by_id(pred_id)
+          end
+        end
+        
+        # If we can't find any ready projects but still have remaining ones,
+        # there's a cycle, so we'll add one arbitrarily to break it
+        if ready_projects.empty?
+          ready_projects = [remaining_projects.first]
+        end
+        
+        # Add ready projects to the result and remove from remaining
+        ready_projects.each do |project|
+          result << project
+          remaining_projects.delete(project)
+        end
+      end
+      
+      return result
+    end
+
+    # Generates an execution plan with dependency ordering
+    #
+    # @return [String] Multiline string execution plan (human/LM readable)
+    def generate_execution_plan : String
+      ordered_projects = get_project_execution_order
+      
+      result = String.new
+      result += "Project Execution Plan:\n"
+      result += "======================\n\n"
+      
+      ordered_projects.each_with_index do |project, index|
+        result += "Step #{index + 1}: #{project.name}\n"
+        result += "  Description: #{project.description}\n"
+        
+        # List dependencies
+        predecessors = get_predecessors(project.id)
+        if !predecessors.empty?
+          result += "  Dependencies: #{predecessors.map(&.name).join(", ")}\n"
         end
         
         result += "\n"
