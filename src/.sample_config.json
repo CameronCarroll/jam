@@ -1,0 +1,17 @@
+[{"name":"Gemini Server","description":"Update Gemini server so that main branch reflects the actual installable code / instructions. Also have to revisit permissions in instructions, and suggest a way of uploading user data into the final server environment."},{"name":"Drawing","description":"I'd like to try to get to the point where just drawing for fun isn't aversive. I think this means building up a repertoire of 'things' and techniques."},{"name":"Painting that cat picture we got from Joann's that's sitting in the corner of the room lol.","description":""},{"name":"Truck reupholster","description":""},{"name":"Truck removing stickers","description":""},{"name":"Reading...","description":""},{"name":"ADHD / Exec Function function... The Work","description":"I'm not really sure what an appropriate goal would be though. Just do something every day to practice strategies / mitigations?"},{"name":"Empty our kanban sort of","description":"to the point that it's not completely crushing to add new things / look at it."},{"name":"Jam Assist","description":"Abomination created to be a project manager, personal assistant"},{"name":"dog","description":"dog"}]
+
+[
+    {
+        "name": "First example project - Neurostimulator system redesign",
+        "description": "Business project, developing a "
+    },
+    {
+        "name": "Second example project - LLM Assistant Program",
+        "description": "Evening/weekend coding project with goal of creating a semi or mostly automed project manager / personal assistant"
+    },
+    {
+        "name": "Third example project - Mecha Rat",
+        "description": "Design and development efforts for Mecha Rat, currently in ideation / prototype phase."
+    },
+
+]

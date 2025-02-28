@@ -1,0 +1,13 @@
+name: jam
+version: 0.1.0
+
+authors:
+  - ieve <ievemail@proton.me>
+
+crystal: '>= 1.15.1'
+
+license: MIT
+
+targets:
+  shards:
+    main: src/jam.cr
