@@ -41,11 +41,14 @@ class Workspace
     #
     # @see CONFIG_FILE
     def save_config
-      project_data_to_save = [] of Hash(String, String)
+      project_data_to_save = [] of Hash(String, String | Array(String))
       @projects.each do |project|
         project_data_to_save << {
+            "id" => project.id,
             "name" => project.name,
             "description" => project.description,
+            "predecessors" => project.predecessors,
+            "successors" => project.successors
         }
       end
       jason_content = project_data_to_save.to_json
@@ -94,6 +97,7 @@ class Workspace
     end
   
     # Retrieves a project from the workspace by its index.
+    # Corresponds to the index & order user sees, @see dump_projects_for_human
     #
     # @param index [Int] The index of the project to retrieve.
     # @return [Project?] The project at the given index, or `nil` if the index is invalid.
@@ -108,6 +112,9 @@ class Workspace
       @projects.delete_at(index)
     end
 
+    # Reads config file, parses the JSON and loads workspace with project data.
+    #
+    # @param config_path [String] Path to the JSON configuration file
     def read_config(config_path) : Nil
       begin
         jason_content = File.read(CONFIG_FILE)
@@ -137,5 +144,127 @@ class Workspace
         puts "Error reading/parsing JSON file: #{e}"
         puts "Problematic path: #{CONFIG_FILE}"
       end
+    end
+
+    # Gets a project by ID from our workspace projects list
+    #
+    # @param id [String] UUID of the project to reference
+    # @return [Project?] Returns project if found or Nil if not found.
+    def get_project_by_id(id : String) : Project?
+      @projects.find { |project| project.id == id }
+    end
+
+    # Create a bidirectional dependency between two projects
+    #
+    # @param predecessor_id [String] ID of the project to set up as predecessor
+    # @param successor_id [String] ID of the project to be set up as succcessor
+    # @return [Bool] Returns True on success and False on failure
+    def create_dependency(predecessor_id : String, successor_id : String) : Bool
+      predecessor = get_project_by_id(predecessor_id)
+      successor = get_project_by_id(successor_id)
+
+      return false unless predecessor && successor
+
+      predecessor.add_successor(successor_id)
+      successor.add_predecessor(predecessor_id)
+
+      save_config
+      return true
+    end
+
+    # Remove a bidirectional dependency between two projects
+    #
+    # @param predecessor_id [String] ID of the predecessor project
+    # @param successor_id [String] ID of the succcessor project
+    # @return [Bool] Returns True on success and False on failure
+    def remove_dependency(predecessor_id : String, successor_id : String) : Bool
+      predecessor = get_project_by_id(predecessor_id)
+      successor = get_project_by_id(successor_id)
+      
+      return false unless predecessor && successor
+      
+      # Remove the bi-directional relationship
+      predecessor.remove_successor(successor_id)
+      successor.remove_predecessor(predecessor_id)
+      
+      save_config  # Save changes to config
+      return true
+    end
+
+    # Get all successors for a given project
+    #
+    # @param project_id [String] ID of the project to query for
+    # @return [Array(Project)] List of successor project objects
+    def get_successors(project_id : String) : Array(Project)
+      project = get_project_by_id(project_id)
+      return [] of Project unless project
+
+      project.successors.compact_map { |id| get_project_by_id(id) }
+    end
+
+    # Get all predecessors for a given project
+    #
+    # @param project_id [String] ID of the project to query for
+    # @return [Array(Project)] List of predecessors project objects
+    def get_predecessors(project_id : String) : Array(Project)
+      project = get_project_by_id(project_id)
+      return [] of Project unless project
+      
+      project.predecessors.compact_map { |id| get_project_by_id(id) }
+    end
+
+    # Find the root projects (projects with no predecessors)
+    #
+    # @return [Array(Project)] List of root project objects
+    def get_root_projects : Array(Project)
+      @projects.select { |project| project.predecessors.empty? }
+    end
+
+    # Find the leaf projects (projects with no successors)
+    #
+    # @return [Array(Project)] List of leaf project objects
+    def get_leaf_projects : Array(Project)
+      @projects.select { |project| project.successors.empty? }
+    end
+
+    def dump_dependency_graph : String
+      result = String.new
+      result += "Project Dependency Graph:\n"
+      result += "=========================\n\n"
+      
+      # Process each project
+      @projects.each do |project|
+        result += "#{project.name} (ID: #{project.id}):\n"
+        
+        if project.predecessors.empty?
+          result += "  Predecessors: None\n"
+        else
+          result += "  Predecessors:\n"
+          project.predecessors.each do |pred_id|
+            if pred = get_project_by_id(pred_id)
+              result += "    - #{pred.name}\n"
+            else
+              result += "    - Unknown project (#{pred_id})\n"
+            end
+          end
+        end
+        
+        if project.successors.empty?
+          result += "  Successors: None\n"
+        else
+          result += "  Successors:\n"
+          project.successors.each do |succ_id|
+            if succ = get_project_by_id(succ_id)
+              result += "    - #{succ.name}\n"
+            else
+              result += "    - Unknown project (#{succ_id})\n"
+            end
+          end
+        end
+        
+        result += "\n"
+      end
+      
+      return result
     end
   end
