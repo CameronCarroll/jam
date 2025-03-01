@@ -1,12 +1,12 @@
 # jam
 # by ieve, Winter (but it feels like Spring) 2025
-# Purpose: Playing around with structured data and LLMs in project management / personal assistant context.
+# Purpose: Playing around with structured data and LLMs in node management / personal assistant context.
 
 require "json"
 require "option_parser"
 require "./llamaclient"
 require "./workspace"
-require "./project"
+require "./node"
 require "./cli"
 require "./planner"
 
@@ -21,27 +21,27 @@ unless File.exists?(CONFIG_FILE)
 end
 
 workspace = Workspace.new("LLM Project")
-# Load config file and projects into workspace
+# Load config file and nodes into workspace
 workspace.read_config(CONFIG_FILE)
 
 #--------------------------------------------
-projectdump = false
+nodedump = false
 chatloop = false
-projectedit = false
+nodeedit = false
 execution_plan = false
 
 parser = OptionParser.new do |parser|
 parser.banner = "Usage: jam [command]"
-parser.on("LMprojectdump", "Dump all projects into context") do
-  projectdump = true
+parser.on("LMnodedump", "Dump all nodes into context") do
+  nodedump = true
 end
 parser.on("LMchatloop", "Enter into a blank chat with default model") do
   chatloop = true
 end
-parser.on("projects", "CLI REPL to make updates to project entries") do
-  projectedit = true
-  parser.banner = "Usage: jam projects [argument]"
-  parser.on("-n NAME", "--new NAME", "Add a name for the project entry") { |_name| name = _name}
+parser.on("nodes", "CLI REPL to make updates to node entries") do
+  nodeedit = true
+  parser.banner = "Usage: jam nodes [argument]"
+  parser.on("-n NAME", "--new NAME", "Add a name for the node entry") { |_name| name = _name}
 end
 parser.on("plan", "Generate and print an execution plan from the current workspace config") do
   execution_plan = true
@@ -50,11 +50,11 @@ end
 
 parser.parse
 
-if projectdump
+if nodedump
   prompt = String.new
-  system_prompt = "You are project management / personal assistant AI expert system program. You are being provided with a full list of all active projects in your database. You have been tasked with finding information on the 'Project Quantum' activities. If you find something relevant, include <RELEVANT> in the results. If you don't find anything relevant, include the token <NULL>."
+  system_prompt = "You are node management / personal assistant AI expert system program. You are being provided with a full list of all active nodes in your database. You have been tasked with finding information on the 'Project Quantum' activities. If you find something relevant, include <RELEVANT> in the results. If you don't find anything relevant, include the token <NULL>."
   prompt += system_prompt
-  prompt += workspace.dump_projects_for_llm
+  prompt += workspace.dump_nodes_for_llm
   if prompt == ""
     puts "no prompt"
   else
@@ -92,18 +92,18 @@ if chatloop
   end
 end
 
-if projectedit
+if nodeedit
   cli = ProjectCLI.new(workspace)
-  puts "Entering project data edit mode."
+  puts "Entering node data edit mode."
   loop do
     puts "======= Project Edit Mode ======="
     puts "Choices: (Enter a number)"
-    puts "0. Print out all project entries for reference"
-    puts "1. Create new project entry"
-    puts "2. Edit an existing project entry"
-    puts "3. Delete an existing project entry"
-    puts "4. View project dependency graph"
-    puts "5. Add relationship between projects"
+    puts "0. Print out all node entries for reference"
+    puts "1. Create new node entry"
+    puts "2. Edit an existing node entry"
+    puts "3. Delete an existing node entry"
+    puts "4. View node dependency graph"
+    puts "5. Add relationship between nodes"
     puts "'exit' to quit"
     if user_response = gets
       user_response = user_response.chomp
@@ -113,17 +113,17 @@ if projectedit
     end
     case user_response
     when "0"
-      puts workspace.dump_projects_for_human
-    when "1" # New project entry
-      cli.new_project_entry
-    when "2" # Edit project
-      cli.edit_project_entry
-    when "3" # Delete project entry
-      cli.delete_project_entry
+      puts workspace.dump_nodes_for_human
+    when "1" # New node entry
+      cli.new_node_entry
+    when "2" # Edit node
+      cli.edit_node_entry
+    when "3" # Delete node entry
+      cli.delete_node_entry
     when "4"
       puts Planner.dump_dependency_graph(workspace)
     when "5"
-      cli.add_relationship_between_projects
+      cli.add_relationship_between_nodes
     when "exit"
       break
     else

@@ -1,9 +1,9 @@
 class ProjectCLI
     @workspace : Workspace
 
-    ## Initializes a new `ProjectCLI` instance.
+    # Initializes a new `ProjectCLI` instance.
     #
-    # Takes a `Workspace` object which is responsible for managing the project data.
+    # Takes a `Workspace` object which is responsible for managing the node data.
     #
     # Args:
     #   workspace (:Workspace): The workspace instance to be used by the CLI.
@@ -11,33 +11,33 @@ class ProjectCLI
         @workspace = workspace
     end
 
-    ## Creates a new project entry in the workspace.
+    # Creates a new node entry in the workspace.
     #
-    # This method guides the user through the process of creating a new project.
-    # It prompts for the project name and description via the command line,
+    # This method guides the user through the process of creating a new node.
+    # It prompts for the node name and description via the command line,
     # validates the input, creates a new `Project` object, adds it to the workspace,
     # and then saves the workspace configuration.
     #
-    # If the provided project name or description is invalid (e.g., empty name),
+    # If the provided node name or description is invalid (e.g., empty name),
     # an error message is displayed, and the operation is aborted.
     #
     # Returns:
     #   Nil
-    def new_project_entry
-        puts "Creating a new project entry..."
-        puts "What is the project name?"
-        project_name = gets
-        if project_name.is_a?(String)
-        if project_name == ""
+    def new_node_entry
+        puts "Creating a new node entry..."
+        puts "What is the node name?"
+        node_name = gets
+        if node_name.is_a?(String)
+        if node_name == ""
             puts "Bad name"
             return
         end
-        puts "OK now drop in a project description."
-        project_description = gets
-        if project_description.is_a?(String)
-            puts "OK I'm making a new project entry with the name and description provided."
-            newproject = Project.new(project_name, project_description)
-            @workspace.add_project(newproject)
+        puts "OK now drop in a node description."
+        node_description = gets
+        if node_description.is_a?(String)
+            puts "OK I'm making a new node entry with the name and description provided."
+            newnode = Node.new(node_name, node_description)
+            @workspace.add_node(newnode)
             @workspace.save_config
         else
             puts "Bad description"
@@ -48,36 +48,36 @@ class ProjectCLI
         end
     end
 
-    ## Edits an existing project entry in the workspace.
+    # Edits an existing node entry in the workspace.
     #
-    # This method allows the user to modify the name and description of an existing project.
-    # It first displays a list of existing projects in the workspace for the user to choose from.
-    # The user is then prompted to enter the number corresponding to the project they wish to edit.
+    # This method allows the user to modify the name and description of an existing node.
+    # It first displays a list of existing nodes in the workspace for the user to choose from.
+    # The user is then prompted to enter the number corresponding to the node they wish to edit.
     #
-    # Upon selecting a valid project number, the current name and description are displayed,
+    # Upon selecting a valid node number, the current name and description are displayed,
     # and the user is prompted to enter a new name and/or description.
     # Leaving the input blank will keep the current value.
     #
     # After modifications, the workspace configuration is saved.
     #
-    # Input validation is performed to ensure a valid project number is entered and
+    # Input validation is performed to ensure a valid node number is entered and
     # to handle potential errors during input processing.
     #
     # Returns:
     #   Nil
-    def edit_project_entry
-        puts "Editing existing project entry..."
-        puts @workspace.dump_projects_for_human # Show projects for reference
-        puts "Enter the number of the project you want to edit:"
-        project_index_str = gets
-        if project_index_str.is_a?(String)
+    def edit_node_entry
+        puts "Editing existing node entry..."
+        puts @workspace.dump_nodes_for_human # Show nodes for reference
+        puts "Enter the number of the node you want to edit:"
+        node_index_str = gets
+        if node_index_str.is_a?(String)
         begin
-            project_index = project_index_str.chomp.to_i
-            project_to_edit = @workspace.get_project_by_index(project_index)
-            if project_to_edit
-            puts "You selected project ##{project_index}:"
-            puts "Current name: #{project_to_edit.name}"
-            puts "Current description: #{project_to_edit.description}"
+            node_index = node_index_str.chomp.to_i
+            node_to_edit = @workspace.get_node_by_index(node_index)
+            if node_to_edit
+            puts "You selected node ##{node_index}:"
+            puts "Current name: #{node_to_edit.name}"
+            puts "Current description: #{node_to_edit.description}"
 
             puts "Enter new name (or leave blank to keep current):"
             if new_name = gets
@@ -94,50 +94,50 @@ class ProjectCLI
                 return
             end
 
-            project_to_edit.name = new_name unless new_name.empty?
-            project_to_edit.description = new_description unless new_description.empty?
+            node_to_edit.name = new_name unless new_name.empty?
+            node_to_edit.description = new_description unless new_description.empty?
 
             @workspace.save_config
-            puts "Project ##{project_index} updated."
+            puts "Node ##{node_index} updated."
             else
-            puts "Invalid project number."
+            puts "Invalid node number."
             end
         rescue e
-            puts "Invalid input for project number."
+            puts "Invalid input for node number."
         end
         else
-        puts "Invalid input for project number."
+        puts "Invalid input for node number."
         end
     end
 
-    ## Deletes an existing project entry from the workspace.
+    # Deletes an existing node entry from the workspace.
     #
-    # This method facilitates the removal of a project from the workspace.
-    # It starts by listing all existing projects to provide context for the user.
-    # The user is then prompted to enter the number of the project they wish to delete.
+    # This method facilitates the removal of a node from the workspace.
+    # It starts by listing all existing nodes to provide context for the user.
+    # The user is then prompted to enter the number of the node they wish to delete.
     #
-    # After selecting a project number, the method displays the project's name and description
+    # After selecting a node number, the method displays the node's name and description
     # and asks for confirmation before proceeding with the deletion.
-    # If the user confirms the deletion, the project is removed from the workspace,
+    # If the user confirms the deletion, the node is removed from the workspace,
     # and the workspace configuration is saved.
     #
-    # Input validation is performed to handle invalid project numbers or input formats.
+    # Input validation is performed to handle invalid node numbers or input formats.
     #
     # Returns:
     #   Nil
-    def delete_project_entry
-        puts "Deleting existing project entry..."
-        puts @workspace.dump_projects_for_human # Show projects for reference
-        puts "Enter the number of the project you want to DELETE:"
-        project_index_str = gets
-        if project_index_str.is_a?(String)
+    def delete_node_entry
+        puts "Deleting existing node entry..."
+        puts @workspace.dump_nodes_for_human # Show nodes for reference
+        puts "Enter the number of the node you want to DELETE:"
+        node_index_str = gets
+        if node_index_str.is_a?(String)
         begin
-            project_index = project_index_str.chomp.to_i
-            project_to_delete = @workspace.get_project_by_index(project_index)
-            if project_to_delete
-            puts "You are about to DELETE project ##{project_index}:"
-            puts "Name: #{project_to_delete.name}"
-            puts "Description: #{project_to_delete.description}"
+            node_index = node_index_str.chomp.to_i
+            node_to_delete = @workspace.get_node_by_index(node_index)
+            if node_to_delete
+            puts "You are about to DELETE node ##{node_index}:"
+            puts "Name: #{node_to_delete.name}"
+            puts "Description: #{node_to_delete.description}"
             puts "Are you sure? (yes/no)"
             if confirmation = gets
                 formatted_confirmation = confirmation.chomp.downcase
@@ -146,83 +146,83 @@ class ProjectCLI
                 return
             end
             if formatted_confirmation == "yes"
-                @workspace.remove_project_by_index(project_index)
+                @workspace.remove_node_by_index(node_index)
                 @workspace.save_config
-                puts "Project ##{project_index} deleted."
+                puts "Node ##{node_index} deleted."
             else
                 puts "Deletion cancelled."
             end
             else
-            puts "Invalid project number."
+            puts "Invalid node number."
             end
         rescue e
-            puts "Invalid input for project number."
+            puts "Invalid input for node number."
         end
         else
-        puts "Invalid input for project number."
+        puts "Invalid input for node number."
         end
     end
 
-    ## Adds a relationship (dependency) between two projects in the workspace.
+    # Adds a relationship (dependency) between two nodes in the workspace.
     #
-    # This method allows users to define dependencies between projects, indicating
-    # that one project (successor) depends on another (predecessor).
-    # It begins by displaying a list of existing projects for user reference.
+    # This method allows users to define dependencies between nodes, indicating
+    # that one node (successor) depends on another (predecessor).
+    # It begins by displaying a list of existing nodes for user reference.
     #
-    # The method then prompts the user to enter the numbers of two projects:
-    # first, the predecessor project, and then the successor project.
-    # Input validation ensures that valid project numbers are entered for both.
+    # The method then prompts the user to enter the numbers of two nodes:
+    # first, the predecessor node, and then the successor node.
+    # Input validation ensures that valid node numbers are entered for both.
     #
     # A confirmation step is included to verify the creation of the relationship
     # before it is actually established. If confirmed, the dependency is created
     # within the workspace, and the workspace configuration is saved.
     #
-    # The method also prevents creating a relationship between a project and itself.
+    # The method also prevents creating a relationship between a node and itself.
     #
     # Returns:
     #   Nil
-    def add_relationship_between_projects
-        puts "Establishing relationship between projects..."
-        puts @workspace.dump_projects_for_human # Show projects for reference
+    def add_relationship_between_nodes
+        puts "Establishing relationship between nodes..."
+        puts @workspace.dump_nodes_for_human # Show nodes for reference
 
-        project1 = nil
-        project2 = nil
-        puts "Enter the number of the first project (predecessor):"
-        project_index_str1 = gets
-        if project_index_str1.is_a?(String)
-            project_index1 = project_index_str1.chomp.to_i
-            project1 = @workspace.get_project_by_index(project_index1)
-            unless project1
-                puts "Invalid project number for the first project."
+        node1 = nil
+        node2 = nil
+        puts "Enter the number of the first node (predecessor):"
+        node_index_str1 = gets
+        if node_index_str1.is_a?(String)
+            node_index1 = node_index_str1.chomp.to_i
+            node1 = @workspace.get_node_by_index(node_index1)
+            unless node1
+                puts "Invalid node number for the first node."
                 return
             end
         else
-            puts "Invalid input for the first project number."
+            puts "Invalid input for the first node number."
             return
         end
 
-        puts "Enter the number of the second project (successor):"
-        project_index_str2 = gets
-        if project_index_str2.is_a?(String)
-            project_index2 = project_index_str2.chomp.to_i
-            project2 = @workspace.get_project_by_index(project_index2)
-            unless project2
-                puts "Invalid project number for the second project."
+        puts "Enter the number of the second node (successor):"
+        node_index_str2 = gets
+        if node_index_str2.is_a?(String)
+            node_index2 = node_index_str2.chomp.to_i
+            node2 = @workspace.get_node_by_index(node_index2)
+            unless node2
+                puts "Invalid node number for the second node."
                 return
             end
         else
-            puts "Invalid input for the second project number."
+            puts "Invalid input for the second node number."
             return
         end
 
-        if project_index1 == project_index2
-            puts "You cannot select the same project for both predecessor and successor."
+        if node_index1 == node_index2
+            puts "You cannot select the same node for both predecessor and successor."
             return
         end
 
         puts "You are about to create a relationship between:"
-        puts "Predecessor Project ##{project_index1}: #{project1.name}"
-        puts "Successor Project ##{project_index2}: #{project2.name}"
+        puts "Predecessor Node ##{node_index1}: #{node1.name}"
+        puts "Successor Node ##{node_index2}: #{node2.name}"
         puts "Are you sure? (yes/no)"
         if confirmation = gets
             formatted_confirmation = confirmation.chomp.downcase
@@ -232,11 +232,11 @@ class ProjectCLI
         end
 
         if formatted_confirmation == "yes"
-            if @workspace.create_dependency(project1.id, project2.id)
+            if @workspace.create_dependency(node1.id, node2.id)
                 @workspace.save_config
-                puts "Relationship established between Project ##{project_index1} and Project ##{project_index2}."
+                puts "Relationship established between Node ##{node_index1} and Node ##{node_index2}."
             else
-                puts "Failed to create relationship. Please check project IDs and try again."
+                puts "Failed to create relationship. Please check node IDs and try again."
             end
         else
             puts "Relationship creation cancelled."

@@ -1,62 +1,56 @@
 class Error < Exception; end
 class ConfigError < Error; end
 
-# Represents a workspace that contains multiple projects.
+# Represents a workspace that contains multiple nodes.
 #
-# A workspace is the top-level container for projects and handles
-# persistence, loading, and project management operations.
+# A workspace is the top-level container for nodes and handles
+# persistence, loading, and node management operations.
 #
 # Example:
 #
 # ```crystal
 # workspace = Workspace.new("My Workspace")
-# workspace.add_project(Project.new("Project A", "Description"))
+# workspace.add_node(Node.new("Node A", "Description"))
 # workspace.save_config
 # ```
 class Workspace
-    # @property name [String]
     # Returns the name of the workspace.
     property name : String
   
-    # @property projects [Array(Project)]
-    # Returns the list of projects within the workspace.
-    property projects : Array(Project)
+    # Returns the list of nodes within the workspace.
+    property nodes : Array(Node)
   
     # Initializes a new Workspace with a given name.
-    #
-    # @param name [String] The name of the workspace.
     def initialize(@name : String)
       @name = name
-      @projects = [] of Project
+      @nodes = [] of Node
     end
   
-    # Adds a project to the workspace.
-    #
-    # @param project [Project] The project to be added.
-    def add_project(project : Project)
-      @projects << project
+    # Adds a node to the workspace.
+    def add_node(node : Node)
+      @nodes << node
     end
   
     # Saves the workspace configuration to a JSON file.
     #
-    # The configuration includes the name and description of each project
+    # The configuration includes the name and description of each node
     # within the workspace. The data is saved to the file specified by `CONFIG_FILE`.
     #
-    # @see CONFIG_FILE
+    # See `CONFIG_FILE`
     def save_config
-      project_data_to_save = [] of Hash(String, String | Array(String))
-      @projects.each do |project|
-        project_data_to_save << {
-            "id" => project.id,
-            "name" => project.name,
-            "description" => project.description,
-            "predecessors" => project.predecessors,
-            "successors" => project.successors,
-            "requirement_ids" => project.requirement_ids,
-            "goal_ids" => project.goal_ids
+      node_data_to_save = [] of Hash(String, String | Array(String))
+      @nodes.each do |node|
+        node_data_to_save << {
+            "id" => node.id,
+            "name" => node.name,
+            "description" => node.description,
+            "predecessors" => node.predecessors,
+            "successors" => node.successors,
+            "requirement_ids" => node.requirement_ids,
+            "goal_ids" => node.goal_ids
         }
       end
-      jason_content = project_data_to_save.to_json
+      jason_content = node_data_to_save.to_json
   
       begin
         File.write(CONFIG_FILE, jason_content)
@@ -66,15 +60,13 @@ class Workspace
       end
     end
 
-    # Reads config file, parses the JSON and loads workspace with project data.
-    #
-    # @param config_path [String] Path to the JSON configuration file
+    # Reads config file, parses the JSON and loads workspace with node data.
     def read_config(config_path) : Nil
       begin
         jason_content = File.read(CONFIG_FILE)
-        projects_data = Array(Hash(String, String | Array(String))).from_json(jason_content)
-        raise ConfigError.new("Expected an array of hashes") unless projects_data.is_a?(Array)
-        projects_data.each do |hash|
+        nodes_data = Array(Hash(String, String | Array(String))).from_json(jason_content)
+        raise ConfigError.new("Expected an array of hashes") unless nodes_data.is_a?(Array)
+        nodes_data.each do |hash|
           raise ConfigError.new("Expected an array of hashes") unless hash.is_a?(Hash)
           id = hash["id"]
           raise ConfigError.new("Expected a string ID") unless id.is_a?(String)
@@ -91,8 +83,8 @@ class Workspace
           goal_ids = hash["goal_ids"]
           raise ConfigError.new("Expected a an array of strings for goal_ids") unless goal_ids.is_a?(Array(String))
 
-          project = Project.new(name, description, id, predecessors, successors, requirement_ids, goal_ids)
-          self.add_project(project)
+          node = Node.new(name, description, id, predecessors, successors, requirement_ids, goal_ids)
+          self.add_node(node)
         end
       rescue e : ConfigError
         puts "Error loading config file: #{e}"
@@ -103,75 +95,64 @@ class Workspace
       end
     end
   
-    # Dumps the context of all projects into a single string.
+    # Dumps the context of all nodes into a single string.
     #
-    # This method concatenates the name and description of each project
+    # This method concatenates the name and description of each node
     # in the workspace. This can be used for providing context to language models.
-    #
-    # @return [String] A string containing the combined project names and descriptions.
-    def dump_projects_for_llm : String
+    def dump_nodes_for_llm : String
       superbigstring = String.new
-      @projects.each do |project|
-        superbigstring += project.name
-        superbigstring += project.description
+      @nodes.each do |node|
+        superbigstring += node.name
+        superbigstring += node.description
       end
       return superbigstring
     end
   
-    # Dumps the list of projects in a human-readable format.
+    # Dumps the list of nodes in a human-readable format.
     #
-    # This method formats the project list with indices, names, and descriptions,
+    # This method formats the node list with indices, names, and descriptions,
     # making it suitable for display in the command line interface.
-    #
-    # @return [String] A formatted string representing the list of projects.
-    def dump_projects_for_human : String
+    def dump_nodes_for_human : String
       superbigstring = String.new
-      superbigstring += "Project list:\n"
+      superbigstring += "Node list:\n"
       superbigstring += "-------------\n"
-      @projects.each.with_index do |project, index|
+      @nodes.each.with_index do |node, index|
         superbigstring += "##{index}:\n"
-        superbigstring += project.name
+        superbigstring += node.name
         superbigstring += "\n"
-        superbigstring += project.description
+        superbigstring += node.description
         superbigstring += "\n-------------\n"
       end
       return superbigstring
     end
   
-    # Retrieves a project from the workspace by its index.
-    # Corresponds to the index & order user sees, @see dump_projects_for_human
+    # Retrieves a node from the workspace by its index.
     #
-    # @param index [Int] The index of the project to retrieve.
-    # @return [Project?] The project at the given index, or `nil` if the index is invalid.
-    def get_project_by_index(index : Int) : Project?
-      return @projects[index]
+    # Returns the node at the given index, or `nil` if the index is invalid.
+    # The index corresponds to the order in which nodes are displayed to the user.
+    # See `dump_nodes_for_human`.
+    def get_node_by_index(index : Int) : Node?
+      return @nodes[index]
     end
   
-    # Removes a project from the workspace by its index.
+    # Removes a node from the workspace by its index..
+    def remove_node_by_index(index : Int)
+      @nodes.delete_at(index)
+    end
+   
+    # Gets a node by ID from our workspace nodes list
     #
-    # @param index [Int] The index of the project to remove.
-    def remove_project_by_index(index : Int)
-      @projects.delete_at(index)
+    # Returns the node if found, or `nil` if not found.
+    def get_node_by_id(id : String) : Node?
+      @nodes.find { |node| node.id.strip == id }
     end
 
-    
-
-    # Gets a project by ID from our workspace projects list
+    # Create a bidirectional dependency between two nodes
     #
-    # @param id [String] UUID of the project to reference
-    # @return [Project?] Returns project if found or Nil if not found.
-    def get_project_by_id(id : String) : Project?
-      @projects.find { |project| project.id.strip == id }
-    end
-
-    # Create a bidirectional dependency between two projects
-    #
-    # @param predecessor_id [String] ID of the project to set up as predecessor
-    # @param successor_id [String] ID of the project to be set up as succcessor
-    # @return [Bool] Returns True on success and False on failure
+    # Returns `true` on success and `false` on failure.
     def create_dependency(predecessor_id : String, successor_id : String) : Bool
-      predecessor = get_project_by_id(predecessor_id)
-      successor = get_project_by_id(successor_id)
+      predecessor = get_node_by_id(predecessor_id)
+      successor = get_node_by_id(successor_id)
 
       return false unless predecessor && successor
 
@@ -182,14 +163,12 @@ class Workspace
       return true
     end
 
-    # Remove a bidirectional dependency between two projects
+    # Remove a bidirectional dependency between two nodes
     #
-    # @param predecessor_id [String] ID of the predecessor project
-    # @param successor_id [String] ID of the succcessor project
-    # @return [Bool] Returns True on success and False on failure
+    # Returns `true` on success and `false` on failure.
     def remove_dependency(predecessor_id : String, successor_id : String) : Bool
-      predecessor = get_project_by_id(predecessor_id)
-      successor = get_project_by_id(successor_id)
+      predecessor = get_node_by_id(predecessor_id)
+      successor = get_node_by_id(successor_id)
       
       return false unless predecessor && successor
       
@@ -201,25 +180,23 @@ class Workspace
       return true
     end
 
-    # Get all successors for a given project
+    # Get all successors for a given node
     #
-    # @param id [String] ID of the project to query for
-    # @return [Array(Project)] List of successor project objects
-    def get_successors(id : String) : Array(Project)
-      project = get_project_by_id(id)
-      return [] of Project unless project
+    # Returns a list of successor node objects.
+    def get_successors(id : String) : Array(Node)
+      node = get_node_by_id(id)
+      return [] of Node unless node
 
-      project.successors.compact_map { |id| get_project_by_id(id) }
+      node.successors.compact_map { |id| get_node_by_id(id) }
     end
 
-    # Get all predecessors for a given project
+    # Get all predecessors for a given node
     #
-    # @param id [String] ID of the project to query for
-    # @return [Array(Project)] List of predecessors project objects
-    def get_predecessors(id : String) : Array(Project)
-      project = get_project_by_id(id)
-      return [] of Project unless project
+    # Returns a list of predecessor node objects.
+    def get_predecessors(id : String) : Array(Node)
+      node = get_node_by_id(id)
+      return [] of Node unless node
       
-      project.predecessors.compact_map { |id| get_project_by_id(id) }
+      node.predecessors.compact_map { |id| get_node_by_id(id) }
     end
   end

@@ -1,47 +1,54 @@
 module Planner
-    # Find the root projects (projects with no predecessors)
+    # Find the root nodes (nodes with no predecessors)
     #
-    # @return [Array(Project)] List of root project objects
-    def self.get_root_projects(workspace : Workspace) : Array(Project)
-        workspace.projects.select { |project| project.predecessors.empty? }
+    # @param [Workspace] Pass in current workspace for object/method access.
+    # @return [Array(Node)] List of root node objects
+    def self.get_root_nodes(workspace : Workspace) : Array(Node)
+        workspace.nodes.select { |node| node.predecessors.empty? }
     end
 
-    # Find the leaf projects (projects with no successors)
+    # Find the leaf nodes (nodes with no successors)
     #
-    # @return [Array(Project)] List of leaf project objects
-    def self.get_leaf_projects(workspace : Workspace) : Array(Project)
-        workspace.projects.select { |project| project.successors.empty? }
+    # @param [Workspace] Pass in current workspace for object/method access.
+    # @return [Array(Node)] List of leaf node objects
+    def self.get_leaf_nodes(workspace : Workspace) : Array(Node)
+        workspace.nodes.select { |node| node.successors.empty? }
     end
 
+    # Prints out a list of nodes along with their predecessor and successors.
+    # It's not a real dependency graph
+    #
+    # @param [Workspace] Pass in current workspace for object/method access.
+    # @return [String] Multiline string of dependency graph/report
     def self.dump_dependency_graph(workspace : Workspace) : String
     result = String.new
-    result += "Project Dependency Graph:\n"
+    result += "Node Dependency Graph:\n"
     result += "=========================\n\n"
     
-    workspace.projects.each do |project|
-        result += "#{project.name} (ID: #{project.id}):\n"
-        if project.predecessors.empty?
+    workspace.nodes.each do |node|
+        result += "#{node.name} (ID: #{node.id}):\n"
+        if node.predecessors.empty?
         result += "  Predecessors: None\n"
         else
         result += "  Predecessors:\n"
-        project.predecessors.each do |pred_id|
-            if pred = workspace.get_project_by_id(pred_id)
+        node.predecessors.each do |pred_id|
+            if pred = workspace.get_node_by_id(pred_id)
             result += "    - #{pred.name}\n"
             else
-            result += "    - Unknown project (#{pred_id})\n"
+            result += "    - Unknown node (#{pred_id})\n"
             end
         end
         end
         
-        if project.successors.empty?
+        if node.successors.empty?
         result += "  Successors: None\n"
         else
         result += "  Successors:\n"
-        project.successors.each do |succ_id|
-            if succ = workspace.get_project_by_id(succ_id)
+        node.successors.each do |succ_id|
+            if succ = workspace.get_node_by_id(succ_id)
             result += "    - #{succ.name}\n"
             else
-            result += "    - Unknown project (#{succ_id})\n"
+            result += "    - Unknown node (#{succ_id})\n"
             end
         end
         end
@@ -52,35 +59,36 @@ module Planner
     return result
     end
 
-    # Return a topologically sorted list of projects
+    # Return a topologically sorted list of nodes
     # ie, sorted in dependency order
     #
-    # @return [Array(Project)] List of projects sorted in dependency order
-    def self.get_project_execution_order(workspace : Workspace) : Array(Project)
-    # Create a copy of the projects to work with
-    remaining_projects = workspace.projects.dup
-    result = [] of Project
+    # @param [Workspace] Pass in current workspace for object/method access.
+    # @return [Array(Node)] List of nodes sorted in dependency order
+    def self.get_node_execution_order(workspace : Workspace) : Array(Node)
+    # Create a copy of the nodes to work with
+    remaining_nodes = workspace.nodes.dup
+    result = [] of Node
     
-    # Keep processing until all projects are in the result
-    while !remaining_projects.empty?
-        # Find projects with no unprocessed predecessors
-        ready_projects = remaining_projects.select do |project|
-        project.predecessors.all? do |pred_id|
+    # Keep processing until all nodes are in the result
+    while !remaining_nodes.empty?
+        # Find nodes with no unprocessed predecessors
+        ready_nodes = remaining_nodes.select do |node|
+        node.predecessors.all? do |pred_id|
             # Either the predecessor is already in the result, or it doesn't exist
-            result.any? { |p| p.id == pred_id } || !workspace.get_project_by_id(pred_id)
+            result.any? { |p| p.id == pred_id } || !workspace.get_node_by_id(pred_id)
         end
         end
         
-        # If we can't find any ready projects but still have remaining ones,
+        # If we can't find any ready nodes but still have remaining ones,
         # there's a cycle, so we'll add one arbitrarily to break it
-        if ready_projects.empty?
-        ready_projects = [remaining_projects.first]
+        if ready_nodes.empty?
+        ready_nodes = [remaining_nodes.first]
         end
         
-        # Add ready projects to the result and remove from remaining
-        ready_projects.each do |project|
-        result << project
-        remaining_projects.delete(project)
+        # Add ready nodes to the result and remove from remaining
+        ready_nodes.each do |node|
+        result << node
+        remaining_nodes.delete(node)
         end
     end
     
@@ -89,20 +97,21 @@ module Planner
 
     # Generates an execution plan with dependency ordering
     #
+    # @param [Workspace] Pass in current workspace for object/method access.
     # @return [String] Multiline string execution plan (human/LM readable)
     def self.generate_execution_plan(workspace : Workspace) : String
-    ordered_projects = get_project_execution_order(workspace)
+    ordered_nodes = get_node_execution_order(workspace)
     
     result = String.new
-    result += "Project Execution Plan:\n"
+    result += "Node Execution Plan:\n"
     result += "======================\n\n"
     
-    ordered_projects.each_with_index do |project, index|
-        result += "Step #{index + 1}: #{project.name}\n"
-        result += "  Description: #{project.description}\n"
+    ordered_nodes.each_with_index do |node, index|
+        result += "Step #{index + 1}: #{node.name}\n"
+        result += "  Description: #{node.description}\n"
         
         # List dependencies
-        predecessors = workspace.get_predecessors(project.id)
+        predecessors = workspace.get_predecessors(node.id)
         if !predecessors.empty?
         result += "  Dependencies: #{predecessors.map(&.name).join(", ")}\n"
         end
