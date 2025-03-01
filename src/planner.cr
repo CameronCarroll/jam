@@ -1,16 +1,18 @@
 module Planner
     # Find the root nodes (nodes with no predecessors)
     #
-    # @param [Workspace] Pass in current workspace for object/method access.
-    # @return [Array(Node)] List of root node objects
+    # Requires passing in the workspace object for data/method access.
+    #
+    # Returns a list of root node objects in the workspace.
     def self.get_root_nodes(workspace : Workspace) : Array(Node)
         workspace.nodes.select { |node| node.predecessors.empty? }
     end
 
     # Find the leaf nodes (nodes with no successors)
     #
-    # @param [Workspace] Pass in current workspace for object/method access.
-    # @return [Array(Node)] List of leaf node objects
+    # Requires passing in the workspace object for data/method access.
+    #
+    # Returns a list of leaf node objects in the workspace.
     def self.get_leaf_nodes(workspace : Workspace) : Array(Node)
         workspace.nodes.select { |node| node.successors.empty? }
     end
@@ -18,8 +20,9 @@ module Planner
     # Prints out a list of nodes along with their predecessor and successors.
     # It's not a real dependency graph
     #
-    # @param [Workspace] Pass in current workspace for object/method access.
-    # @return [String] Multiline string of dependency graph/report
+    # Requires passing in the workspace object for data/method access.
+    # 
+    # Returns a multiline string of the dependency graph report
     def self.dump_dependency_graph(workspace : Workspace) : String
     result = String.new
     result += "Node Dependency Graph:\n"
@@ -62,8 +65,9 @@ module Planner
     # Return a topologically sorted list of nodes
     # ie, sorted in dependency order
     #
-    # @param [Workspace] Pass in current workspace for object/method access.
-    # @return [Array(Node)] List of nodes sorted in dependency order
+    # Requires passing in the workspace object for data/method access.
+    # 
+    # Returns an array of `Node` sorted in execution order.
     def self.get_node_execution_order(workspace : Workspace) : Array(Node)
     # Create a copy of the nodes to work with
     remaining_nodes = workspace.nodes.dup
@@ -97,8 +101,9 @@ module Planner
 
     # Generates an execution plan with dependency ordering
     #
-    # @param [Workspace] Pass in current workspace for object/method access.
-    # @return [String] Multiline string execution plan (human/LM readable)
+    # Requires passing in the workspace object for data/method access.
+    # 
+    # Returns a multiline string execution plan (human/LM readable)
     def self.generate_execution_plan(workspace : Workspace) : String
     ordered_nodes = get_node_execution_order(workspace)
     

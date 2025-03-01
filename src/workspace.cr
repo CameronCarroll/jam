@@ -10,6 +10,7 @@ class ConfigError < Error; end
 #
 # ```crystal
 # workspace = Workspace.new("My Workspace")
+# workspace.read_config(config_file_path)
 # workspace.add_node(Node.new("Node A", "Description"))
 # workspace.save_config
 # ```
@@ -126,16 +127,16 @@ class Workspace
       return superbigstring
     end
   
-    # Retrieves a node from the workspace by its index.
+    # Retrieves a node from the workspace by its display index. (Not its ID!)
     #
     # Returns the node at the given index, or `nil` if the index is invalid.
-    # The index corresponds to the order in which nodes are displayed to the user.
+    # The index corresponds to the order in which nodes are displayed to the user. This is also the order in which nodes are listed in the JSON file.
     # See `dump_nodes_for_human`.
     def get_node_by_index(index : Int) : Node?
       return @nodes[index]
     end
   
-    # Removes a node from the workspace by its index..
+    # Removes a node from the workspace by its display index (Not its ID! See `get_node_by_index`)
     def remove_node_by_index(index : Int)
       @nodes.delete_at(index)
     end
