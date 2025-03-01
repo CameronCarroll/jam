@@ -51,7 +51,9 @@ class Workspace
             "name" => project.name,
             "description" => project.description,
             "predecessors" => project.predecessors,
-            "successors" => project.successors
+            "successors" => project.successors,
+            "requirement_ids" => project.requirement_ids,
+            "goal_ids" => project.goal_ids
         }
       end
       jason_content = project_data_to_save.to_json
@@ -61,6 +63,43 @@ class Workspace
         puts "Workspace config saved to config file #{CONFIG_FILE}"
       rescue e : File::Error
         puts "Error saving configuration: #{e}"
+      end
+    end
+
+    # Reads config file, parses the JSON and loads workspace with project data.
+    #
+    # @param config_path [String] Path to the JSON configuration file
+    def read_config(config_path) : Nil
+      begin
+        jason_content = File.read(CONFIG_FILE)
+        projects_data = Array(Hash(String, String | Array(String))).from_json(jason_content)
+        raise ConfigError.new("Expected an array of hashes") unless projects_data.is_a?(Array)
+        projects_data.each do |hash|
+          raise ConfigError.new("Expected an array of hashes") unless hash.is_a?(Hash)
+          id = hash["id"]
+          raise ConfigError.new("Expected a string ID") unless id.is_a?(String)
+          name = hash["name"]
+          raise ConfigError.new("Expected a string name") unless name.is_a?(String)
+          description = hash["description"]
+          raise ConfigError.new("Expected a string description") unless description.is_a?(String)
+          predecessors = hash["predecessors"]
+          raise ConfigError.new("Expected a an array of strings for predecessors") unless predecessors.is_a?(Array(String))
+          successors = hash["successors"]
+          raise ConfigError.new("Expected a an array of strings for successors") unless successors.is_a?(Array(String))
+          requirement_ids = hash["requirement_ids"]
+          raise ConfigError.new("Expected a an array of strings for requirement_ids") unless requirement_ids.is_a?(Array(String))
+          goal_ids = hash["goal_ids"]
+          raise ConfigError.new("Expected a an array of strings for goal_ids") unless goal_ids.is_a?(Array(String))
+
+          project = Project.new(id, name, description, predecessors, successors, requirement_ids, goal_ids)
+          self.add_project(project)
+        end
+      rescue e : ConfigError
+        puts "Error loading config file: #{e}"
+        puts "Config is located at: #{CONFIG_FILE}"
+      rescue e : File::Error
+        puts "Error reading/parsing JSON file: #{e}"
+        puts "Problematic path: #{CONFIG_FILE}"
       end
     end
   
@@ -115,38 +154,7 @@ class Workspace
       @projects.delete_at(index)
     end
 
-    # Reads config file, parses the JSON and loads workspace with project data.
-    #
-    # @param config_path [String] Path to the JSON configuration file
-    def read_config(config_path) : Nil
-      begin
-        jason_content = File.read(CONFIG_FILE)
-        projects_data = Array(Hash(String, String | Array(String))).from_json(jason_content)
-        raise ConfigError.new("Expected an array of hashes") unless projects_data.is_a?(Array)
-        projects_data.each do |hash|
-          raise ConfigError.new("Expected an array of hashes") unless hash.is_a?(Hash)
-          id = hash["id"]
-          raise ConfigError.new("Expected a string ID") unless id.is_a?(String)
-          name = hash["name"]
-          raise ConfigError.new("Expected a string name") unless name.is_a?(String)
-          description = hash["description"]
-          raise ConfigError.new("Expected a string description") unless description.is_a?(String)
-          predecessors = hash["predecessors"]
-          raise ConfigError.new("Expected a an array of strings for predecessors") unless predecessors.is_a?(Array(String))
-          successors = hash["successors"]
-          raise ConfigError.new("Expected a an array of strings for successors") unless successors.is_a?(Array(String))
-
-          project = Project.new(id, name, description, predecessors, successors)
-          self.add_project(project)
-        end
-      rescue e : ConfigError
-        puts "Error loading config file: #{e}"
-        puts "Config is located at: #{CONFIG_FILE}"
-      rescue e : File::Error
-        puts "Error reading/parsing JSON file: #{e}"
-        puts "Problematic path: #{CONFIG_FILE}"
-      end
-    end
+    
 
     # Gets a project by ID from our workspace projects list
     #

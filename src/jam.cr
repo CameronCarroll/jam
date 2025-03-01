@@ -37,12 +37,12 @@ end
 parser.on("LMchatloop", "Enter into a blank chat with default model") do
   chatloop = true
 end
-parser.on("projects", "Make updates to project entries") do
+parser.on("projects", "CLI REPL to make updates to project entries") do
   projectedit = true
   parser.banner = "Usage: jam projects [argument]"
   parser.on("-n NAME", "--new NAME", "Add a name for the project entry") { |_name| name = _name}
 end
-parser.on("plan", "Generate an execution plan from the current workspace config") do
+parser.on("plan", "Generate and print an execution plan from the current workspace config") do
   execution_plan = true
 end
 end

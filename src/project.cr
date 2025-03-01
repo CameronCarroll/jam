@@ -27,6 +27,14 @@ class Project
     # (ie, projects that cannot start until this one is finished)
     property successors : Array(String)
 
+    # @property requirement_ids : [Array(String)]
+    # Set/return a list of requirement IDs associated with this project/task
+    property requirement_ids : Array(String)
+
+    # @property goal_ids : [Array(String)]
+    # Set/return a list of goal IDs associated with this project/task
+    property goal_ids : Array(String)
+
     # Initializes a new Project with a name and description.
     #
     # @param name [String] The name of the project.
@@ -36,7 +44,9 @@ class Project
         @description : String,
         @id : String = UUID.random.to_s,
         @predecessors = [] of String,
-        @successors = [] of String
+        @successors = [] of String,
+        @requirement_ids = [] of String,
+        @goal_ids = [] of String
     )
     end
 
@@ -47,13 +57,6 @@ class Project
         @predecessors << project_id unless @predecessors.includes?(project_id)
     end
 
-    # Associates a successor to this project
-    #
-    # @param project_id [String] UUID for the project to be added as successor
-    def add_successor(project_id : String)
-        @successors << project_id unless @successors.includes?(project_id)
-    end
-
     # Removes a predecessor task from this project's associations
     #
     # @param project_id [String] UUID for the project to be removed as predecessor
@@ -61,10 +64,45 @@ class Project
         @predecessors.delete(project_id)
     end
 
+    # Associates a successor to this project
+    #
+    # @param project_id [String] UUID for the project to be added as successor
+    def add_successor(project_id : String)
+        @successors << project_id unless @successors.includes?(project_id)
+    end
+
     # Removes a successor task from this project's associations
     #
     # @param project_id [String] UUID for the project to be removed as successor
     def remove_successor(project_id : String)
         @successors.delete(project_id)
+    end
+
+    # Associates a requirement ID to this project
+    #
+    # @param project_id [String] UUID for the project to be added as requirement
+    def add_requirement(project_id : String)
+        @requirement_ids << project_id unless @requirement_ids.includes?(project_id)
+    end
+
+    # Removes a requirement ID from this project's associations
+    #
+    # @param project_id [String] UUID for the project to be removed as requirement
+    def remove_requirement(project_id : String)
+        @requirement_ids.delete(project_id)
+    end
+
+    # Associates a goal ID to this project
+    #
+    # @param project_id [String] UUID for the project to be added as goal
+    def add_goal(project_id : String)
+        @goal_ids << project_id unless @goal_ids.includes?(project_id)
+    end
+
+    # Removes a goal ID from this project's associations
+    #
+    # @param project_id [String] UUID for the project to be removed as goal
+    def remove_goal(project_id : String)
+        @goal_ids.delete(project_id)
     end
   end
