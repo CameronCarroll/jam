@@ -37,8 +37,13 @@ class Project
 
     # Initializes a new Project with a name and description.
     #
+    # @param id [String] The unique identifier of the project (defaults to a random UUID).
     # @param name [String] The name of the project.
     # @param description [String] The description of the project.
+    # @param predecessors [Array(String)] An array of project IDs that are predecessors of this project.
+    # @param successors [Array(String)] An array of project IDs that are successors of this project.
+    # @param requirement_ids [Array(String)] An array of requirement IDs associated with this project.
+    # @param goal_ids [Array(String)] An array of goal IDs associated with this project.
     def initialize(
         @name : String,
         @description : String,

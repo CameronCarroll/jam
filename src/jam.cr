@@ -8,6 +8,7 @@ require "./llamaclient"
 require "./workspace"
 require "./project"
 require "./cli"
+require "./planner"
 
 CONFIG_FILE = ".jam_config.json"
 MODEL = "phi4:latest"
@@ -120,7 +121,7 @@ if projectedit
     when "3" # Delete project entry
       cli.delete_project_entry
     when "4"
-      puts workspace.dump_dependency_graph
+      puts Planner.dump_dependency_graph(workspace)
     when "5"
       cli.add_relationship_between_projects
     when "exit"
@@ -132,5 +133,5 @@ if projectedit
 end
 
 if execution_plan
-  puts workspace.generate_execution_plan
+  puts Planner.generate_execution_plan(workspace)
 end
