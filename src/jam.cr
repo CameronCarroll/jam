@@ -12,11 +12,26 @@ require "./planner"
 
 CONFIG_FILE = ".jam_config.json"
 MODEL = "phi4:latest"
+SKELETON_WORKSPACE = "%%%What I am working on now%%%
+Fill this section in with what I'm actively working on in the current session.
 
+%%%Next Steps%%%
+I should list the next 1-3 actions to be performed in this section.
+
+%%%Scratchpad and Notes%%%
+I can jot things down in this space like temporary thoughts, intermediate results, project data."
+
+class InputError < Error; end
+class ModelError < Error; end
 
 unless File.exists?(CONFIG_FILE)
   File.open(CONFIG_FILE, "w") do |file|
-    file.print("[]")
+    file.print("
+    {
+    \"name\": \"\",
+    \"system_prompt\": \"\",
+    \"nodes\": []
+    }")
   end
 end
 
@@ -25,17 +40,17 @@ workspace = Workspace.new("LLM Project")
 workspace.read_config(CONFIG_FILE)
 
 #--------------------------------------------
-nodedump = false
+humaninloop = false
 chatloop = false
 nodeedit = false
 execution_plan = false
 
 parser = OptionParser.new do |parser|
 parser.banner = "Usage: jam [command]"
-parser.on("LMnodedump", "Dump all nodes into context") do
-  nodedump = true
+parser.on("humaninloop", "Workspace planner with human in the loop") do
+  humaninloop = true
 end
-parser.on("LMchatloop", "Enter into a blank chat with default model") do
+parser.on("chatloop", "Enter into a blank chat with default model") do
   chatloop = true
 end
 parser.on("nodes", "CLI REPL to make updates to node entries") do
@@ -50,9 +65,56 @@ end
 
 parser.parse
 
-if nodedump
+if humaninloop
+  # Grab user initial prompt
+  # Grab workspace prompt, set it to skeleton if blank string
+  # Assemble system prompt for a WORK TURN.
+  # Send WORK TURN query to model
+  # Assembly system prompt for a REFLECTION TURN.
+  # Send REFLECTION TURN QUERY to model
+  # Present both queries & results to user and ask for another input
+
+  puts "Entering LM Planner Human-In-The-Loop (that's you) Mode!!"
+  loop do
+    begin
+      work_context = String.new
+      puts "Please provide prompt."
+      puts "=> "
+      user_response = gets
+      raise InputError.new("Problem with the user prompt input.") unless user_response.is_a?(String)
+      break if user_response == "exit"
+      workspace.system_prompt = SKELETON_WORKSPACE if workspace.system_prompt = ""
+      work_context += "%%%WORKSPACE%%%" + workspace.system_prompt + "\n"
+      work_context += "%%%USER QUERY%%%" + user_response + "\n"
+      work_context += "This is a WORK TURN. I should not update my internal workspace on this turn."
+      work_response = LlamaClient.send_text(work_context, MODEL)
+      raise ModelError.new("Problem with response from the model.") unless work_response.is_a?(String)
+      puts "\n-----------------------"
+      puts "Work response from model:"
+      puts work_response
+
+      reflection_context = String.new
+      reflection_context += "%%%WORKSPACE%%%" + workspace.system_prompt + "\n"
+      reflection_context += "%%%MY PREVIOUS MESSAGE%%%" + work_response + "\n"
+      reflection_context += "This is a REFLECTION TURN. I should update my internal %%%WORKSPACE%%% fields based on %%%MY PREVIOUS MESSAGE%%% to save any updates on work I'm working on, concrete next steps for the next iteration, and any notes for the scratchpad."
+      reflection_response = LlamaClient.send_text(reflection_context, MODEL)
+      raise ModelError.new("Problem with response from the model.") unless reflection_response.is_a?(String)
+      workspace.system_prompt = reflection_response
+      
+      puts "\n-----------------------"
+      puts "Reflection response from model:"
+      puts reflection_response
+    rescue e : InputError
+      puts "Uh... so... #{e}"
+    rescue e : ModelError
+      puts "Ohhhhh! #{e}"
+    ensure
+      workspace.save_config
+    end
+  end
+
   prompt = String.new
-  system_prompt = "You are node management / personal assistant AI expert system program. You are being provided with a full list of all active nodes in your database. You have been tasked with finding information on the 'Project Quantum' activities. If you find something relevant, include <RELEVANT> in the results. If you don't find anything relevant, include the token <NULL>."
+  system_prompt = "System Prompt"
   prompt += system_prompt
   prompt += workspace.dump_nodes_for_llm
   if prompt == ""

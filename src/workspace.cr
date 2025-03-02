@@ -15,15 +15,19 @@ class ConfigError < Error; end
 # workspace.save_config
 # ```
 class Workspace
-    # Returns the name of the workspace.
+    # This workspace has a name.
     property name : String
   
-    # Returns the list of nodes within the workspace.
+    # Array of Node objects within this workspace.
     property nodes : Array(Node)
+
+    # System prompt / workspace for LLM
+    property system_prompt : String
   
-    # Initializes a new Workspace with a given name.
-    def initialize(@name : String)
+    # Initializes a new Workspace
+    def initialize(@name : String, @system_prompt = "")
       @name = name
+      @system_prompt = system_prompt
       @nodes = [] of Node
     end
   
@@ -39,9 +43,15 @@ class Workspace
     #
     # See `CONFIG_FILE`
     def save_config
-      node_data_to_save = [] of Hash(String, String | Array(String))
+
+      workspace_data = {
+        "name" => @name,
+        "system_prompt" => @system_prompt,
+        "nodes" => [] of Hash(String, String | Array(String))
+      }
+      nodes_array = workspace_data["nodes"].as(Array(Hash(String, String | Array(String))))
       @nodes.each do |node|
-        node_data_to_save << {
+        nodes_array << {
             "id" => node.id,
             "name" => node.name,
             "description" => node.description,
@@ -51,7 +61,8 @@ class Workspace
             "goal_ids" => node.goal_ids
         }
       end
-      jason_content = node_data_to_save.to_json
+      workspace_data["nodes"] = nodes_array
+      jason_content = workspace_data.to_json
   
       begin
         File.write(CONFIG_FILE, jason_content)
@@ -65,24 +76,33 @@ class Workspace
     def read_config(config_path) : Nil
       begin
         jason_content = File.read(CONFIG_FILE)
-        nodes_data = Array(Hash(String, String | Array(String))).from_json(jason_content)
-        raise ConfigError.new("Expected an array of hashes") unless nodes_data.is_a?(Array)
+        workspace_data = Hash(String, String | Array(Hash(String, String | Array(String)))).from_json(jason_content)
+
+        raise ConfigError.new("Expected a hash for workspace config") unless workspace_data.is_a?(Hash)
+        raise ConfigError.new("Expected a string for workspace name") unless workspace_data["name"].is_a?(String)
+        @name = workspace_data["name"].to_s
+        @system_prompt = workspace_data["system_prompt"].to_s
+        raise ConfigError.new("Expected a string for system prompt") unless @system_prompt.is_a?(String)
+
+        nodes_data = workspace_data["nodes"]
+        raise ConfigError.new("Expected a nodes array in config") unless nodes_data.is_a?(Array)
+
         nodes_data.each do |hash|
-          raise ConfigError.new("Expected an array of hashes") unless hash.is_a?(Hash)
+          raise ConfigError.new("Expected an array of hashes for nodes") unless hash.is_a?(Hash)
           id = hash["id"]
-          raise ConfigError.new("Expected a string ID") unless id.is_a?(String)
+          raise ConfigError.new("Expected a string ID for node") unless id.is_a?(String)
           name = hash["name"]
-          raise ConfigError.new("Expected a string name") unless name.is_a?(String)
+          raise ConfigError.new("Expected a string name for node") unless name.is_a?(String)
           description = hash["description"]
-          raise ConfigError.new("Expected a string description") unless description.is_a?(String)
+          raise ConfigError.new("Expected a string description for node") unless description.is_a?(String)
           predecessors = hash["predecessors"]
-          raise ConfigError.new("Expected a an array of strings for predecessors") unless predecessors.is_a?(Array(String))
+          raise ConfigError.new("Expected a an array of strings for node predecessors") unless predecessors.is_a?(Array(String))
           successors = hash["successors"]
-          raise ConfigError.new("Expected a an array of strings for successors") unless successors.is_a?(Array(String))
+          raise ConfigError.new("Expected a an array of strings for node successors") unless successors.is_a?(Array(String))
           requirement_ids = hash["requirement_ids"]
-          raise ConfigError.new("Expected a an array of strings for requirement_ids") unless requirement_ids.is_a?(Array(String))
+          raise ConfigError.new("Expected a an array of strings for node requirement_ids") unless requirement_ids.is_a?(Array(String))
           goal_ids = hash["goal_ids"]
-          raise ConfigError.new("Expected a an array of strings for goal_ids") unless goal_ids.is_a?(Array(String))
+          raise ConfigError.new("Expected a an array of strings for node goal_ids") unless goal_ids.is_a?(Array(String))
 
           node = Node.new(name, description, id, predecessors, successors, requirement_ids, goal_ids)
           self.add_node(node)
