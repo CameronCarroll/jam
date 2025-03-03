@@ -13,6 +13,7 @@ require "./lmroutines"
 
 CONFIG_FILE = ".jam_config.json"
 MODEL = "phi4:latest"
+ENABLE_COMMAND_TRACKING = true # Enable command history tracking in LM Planner
 
 # ---------------------------------------------------------------------
 
@@ -60,7 +61,7 @@ end
 parser.parse
 
 if humaninloop
-  LMRoutines.run_human_in_loop_planner(workspace, MODEL)
+  LMRoutines.run_human_in_loop_planner(workspace, MODEL, ENABLE_COMMAND_TRACKING)
 else
   puts "no action" unless chatloop || nodeedit || execution_plan
 end

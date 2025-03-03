@@ -232,11 +232,11 @@ class ProjectCLI
         end
 
         if formatted_confirmation == "yes"
-            if @workspace.create_dependency(node1.id, node2.id)
-                @workspace.save_config
+            success, message = @workspace.create_dependency(node1, node2)
+            if success
                 puts "Relationship established between Node ##{node_index1} and Node ##{node_index2}."
             else
-                puts "Failed to create relationship. Please check node IDs and try again."
+                puts "Failed to create relationship: #{message}"
             end
         else
             puts "Relationship creation cancelled."

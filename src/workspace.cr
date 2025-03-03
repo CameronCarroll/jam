@@ -177,35 +177,45 @@ class Workspace
 
     # Create a bidirectional dependency between two nodes
     #
-    # Returns `true` on success and `false` on failure.
-    def create_dependency(predecessor_id : String, successor_id : String) : Bool
-      predecessor = get_node_by_id(predecessor_id)
-      successor = get_node_by_id(successor_id)
-
-      return false unless predecessor && successor
-
-      predecessor.add_successor(successor_id)
-      successor.add_predecessor(predecessor_id)
+    # Returns a tuple with success status and error message (if any).
+    def create_dependency(predecessor : Node, successor : Node) : Tuple(Bool, String)
+      return {false, "Predecessor node is nil"} unless predecessor
+      return {false, "Successor node is nil"} unless successor
+      
+      # Check if relationship already exists
+      if predecessor.successors.includes?(successor.id)
+        return {false, "Relationship already exists between '#{predecessor.name}' and '#{successor.name}'"}
+      end
+      
+      # Add the relationship
+      predecessor.add_successor(successor.id)
+      successor.add_predecessor(predecessor.id)
 
       save_config
-      return true
+      return {true, ""}
     end
 
     # Remove a bidirectional dependency between two nodes
     #
-    # Returns `true` on success and `false` on failure.
-    def remove_dependency(predecessor_id : String, successor_id : String) : Bool
+    # Returns a tuple with success status and error message (if any).
+    def remove_dependency(predecessor_id : String, successor_id : String) : Tuple(Bool, String)
       predecessor = get_node_by_id(predecessor_id)
       successor = get_node_by_id(successor_id)
       
-      return false unless predecessor && successor
+      return {false, "Predecessor node with ID '#{predecessor_id}' not found"} unless predecessor
+      return {false, "Successor node with ID '#{successor_id}' not found"} unless successor
+      
+      # Check if relationship exists
+      unless predecessor.successors.includes?(successor_id)
+        return {false, "No relationship exists between '#{predecessor.name}' and '#{successor.name}'"}
+      end
       
       # Remove the bi-directional relationship
       predecessor.remove_successor(successor_id)
       successor.remove_predecessor(predecessor_id)
       
       save_config  # Save changes to config
-      return true
+      return {true, ""}
     end
 
     # Get all successors for a given node
@@ -228,10 +238,32 @@ class Workspace
       node.predecessors.compact_map { |id| get_node_by_id(id) }
     end
     
+    # Removes a node from the workspace by its index
+    #
+    # Returns a tuple with success status and error message (if any).
+    def remove_node(index : Int) : Tuple(Bool, String)
+      if node = get_node_by_index(index)
+        # Get the ID for reference removal
+        node_id = node.id
+        
+        # Remove this node from any nodes that reference it
+        @nodes.each do |other_node|
+          other_node.remove_predecessor(node_id)
+          other_node.remove_successor(node_id)
+        end
+        
+        # Remove the node from the workspace
+        @nodes.delete(node)
+        save_config
+        return {true, ""}
+      end
+      return {false, "Node at index #{index} not found"}
+    end
+    
     # Removes a node from the workspace by its ID
     #
-    # Returns `true` if the node was found and removed, `false` otherwise.
-    def remove_node(id : String) : Bool
+    # Returns a tuple with success status and error message (if any).
+    def remove_node(id : String) : Tuple(Bool, String)
       if node = get_node_by_id(id)
         # Remove this node from any nodes that reference it
         @nodes.each do |other_node|
@@ -242,15 +274,21 @@ class Workspace
         # Remove the node from the workspace
         @nodes.delete(node)
         save_config
-        return true
+        return {true, ""}
       end
-      return false
+      return {false, "Node with ID '#{id}' not found"}
     end
     
-    # Adds a relationship between two nodes (parent → child)
+    # Adds a relationship between two nodes (parent → child) by their IDs
     #
-    # Returns `true` on success and `false` on failure.
-    def add_relationship(parent_id : String, child_id : String) : Bool
-      create_dependency(parent_id, child_id)
+    # Returns a tuple with success status and error message (if any).
+    def add_relationship(parent_id : String, child_id : String) : Tuple(Bool, String)
+      parent = self.get_node_by_id(parent_id)
+      child = self.get_node_by_id(child_id)
+      
+      return {false, "Parent node with ID '#{parent_id}' not found"} unless parent
+      return {false, "Child node with ID '#{child_id}' not found"} unless child
+      
+      return create_dependency(parent, child)
     end
   end

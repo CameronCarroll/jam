@@ -6,14 +6,346 @@ require "../src/node"
 # Mock for LlamaClient to avoid real API calls during tests
 module LlamaClient
   class_property next_response : String = "Default response"
+  class_property work_responses : Array(String) = [] of String
+  class_property reflection_response : String = "Reflection response"
   
   def self.send_text(prompt : String, model : String, api_url : String = "http://localhost:11434/api/generate")
-    @@next_response
+    if prompt.includes?(LMRoutines::REFLECTION_PROMPT)
+      return @@reflection_response
+    elsif !@@work_responses.empty?
+      return @@work_responses.shift
+    else
+      return @@next_response
+    end
   end
 end
 
+# Setup test config path for LMRoutines specs
+LM_CONFIG_FILE_TEST = "test_config_lmroutines.json"
+
 describe LMRoutines do
+  config_path = Path.new(LM_CONFIG_FILE_TEST)
+
+  describe "#command_history_tracking" do
+    it "tracks commands executed by the LM" do
+      # Set up workspace with a test node
+      workspace = Workspace.new("Test Workspace", config_path)
+      node1 = Node.new("Node 1", "Description 1", "node_id_1")
+      workspace.add_node(node1)
+      workspace.save_config
+      
+      # Set up LlamaClient mock responses
+      # Set responses for the sequence of model interactions
+      LlamaClient.next_response = "I'll help you work with your nodes. <JSON_CMD>{\"action\": \"list_nodes\", \"parameters\": {}}<END_JSON_CMD>"
+      
+      # Create a command history manually to test the output logic
+      command_history = [
+        {"action" => JSON::Any.new("list_nodes"), "parameters" => JSON.parse("{}")},
+        {"action" => JSON::Any.new("add_node"), "parameters" => JSON.parse("{\"name\": \"Node 2\", \"description\": \"A second node\"}")},
+        {"action" => JSON::Any.new("get_node"), "parameters" => JSON.parse("{\"index\": 1}")}
+      ]
+      
+      # Test the formatting of command history output
+      output = String.build do |io|
+        LMRoutines.print_command_history(command_history, io)
+      end
+      
+      # Skip color codes in the verification since they'll be different in colorized output
+      # Just check for the key content parts
+      output.should contain("Command History")
+      output.should contain("list_nodes")
+      output.should contain("add_node")
+      output.should contain("name: Node 2")
+      output.should contain("description: A second node")
+      output.should contain("get_node")
+      output.should contain("index: 1")
+      
+      # Clean up
+      File.delete(LM_CONFIG_FILE_TEST) if File.exists?(LM_CONFIG_FILE_TEST)
+    end
+  end
+
   describe "#process_json_commands" do
+    describe "node access methods" do
+      after_each do
+        File.delete(LM_CONFIG_FILE_TEST) if File.exists?(LM_CONFIG_FILE_TEST)
+      end
+      
+      it "gets a node by its display index" do
+        workspace = Workspace.new("Test Workspace", config_path)
+        node1 = Node.new("Node 1", "Description 1", "node_id_1")
+        node2 = Node.new("Node 2", "Description 2", "node_id_2")
+        node3 = Node.new("Node 3", "Description 3", "node_id_3")
+        workspace.add_node(node1)
+        workspace.add_node(node2)
+        workspace.add_node(node3)
+        workspace.save_config
+
+        json_cmd = {
+          "action" => "get_node",
+          "parameters" => {
+            "index" => 1
+          }
+        }.to_json
+
+        response = "Let me get that node: <JSON_CMD>#{json_cmd}<END_JSON_CMD>"
+        result = LMRoutines.process_json_commands(response, workspace)
+
+        result.should_not be_nil
+        result.not_nil!.should contain(node2.name)
+        result.not_nil!.should contain(node2.description)
+      end
+
+      it "gets a node by its ID" do
+        workspace = Workspace.new("Test Workspace", config_path)
+        node1 = Node.new("Node 1", "Description 1", "node_id_1")
+        node2 = Node.new("Node 2", "Description 2", "node_id_2")
+        node3 = Node.new("Node 3", "Description 3", "node_id_3")
+        workspace.add_node(node1)
+        workspace.add_node(node2)
+        workspace.add_node(node3)
+        workspace.save_config
+        
+        json_cmd = {
+          "action" => "get_node",
+          "parameters" => {
+            "id" => "node_id_3"
+          }
+        }.to_json
+
+        response = "Let me get that node: <JSON_CMD>#{json_cmd}<END_JSON_CMD>"
+        result = LMRoutines.process_json_commands(response, workspace)
+
+        result.should_not be_nil
+        result.not_nil!.should contain(node3.name)
+        result.not_nil!.should contain(node3.description)
+      end
+
+      it "returns an error when getting a node with an invalid index" do
+        workspace = Workspace.new("Test Workspace", config_path)
+        node1 = Node.new("Node 1", "Description 1", "node_id_1")
+        workspace.add_node(node1)
+        workspace.save_config
+        
+        json_cmd = {
+          "action" => "get_node",
+          "parameters" => {
+            "index" => 99
+          }
+        }.to_json
+
+        response = "Let me get that node: <JSON_CMD>#{json_cmd}<END_JSON_CMD>"
+        result = LMRoutines.process_json_commands(response, workspace)
+
+        result.should_not be_nil
+        result.not_nil!.should contain("not found")
+      end
+
+      it "returns an error when getting a node with an invalid ID" do
+        workspace = Workspace.new("Test Workspace", config_path)
+        node1 = Node.new("Node 1", "Description 1", "node_id_1")
+        workspace.add_node(node1)
+        workspace.save_config
+        
+        json_cmd = {
+          "action" => "get_node",
+          "parameters" => {
+            "id" => "non_existent_id"
+          }
+        }.to_json
+
+        response = "Let me get that node: <JSON_CMD>#{json_cmd}<END_JSON_CMD>"
+        result = LMRoutines.process_json_commands(response, workspace)
+
+        result.should_not be_nil
+        result.not_nil!.should contain("not found")
+      end
+
+      it "updates a node by its display index" do
+        workspace = Workspace.new("Test Workspace", config_path)
+        node1 = Node.new("Node 1", "Description 1", "node_id_1")
+        workspace.add_node(node1)
+        workspace.save_config
+        
+        json_cmd = {
+          "action" => "update_node",
+          "parameters" => {
+            "index" => 0,
+            "name" => "Updated Node 1",
+            "description" => "Updated Description 1"
+          }
+        }.to_json
+
+        response = "Let me update that node: <JSON_CMD>#{json_cmd}<END_JSON_CMD>"
+        result = LMRoutines.process_json_commands(response, workspace)
+
+        result.should_not be_nil
+        result.not_nil!.should contain("updated")
+        
+        # Verify the node was actually updated
+        updated_node = workspace.get_node_by_index(0)
+        updated_node.should_not be_nil
+        updated_node.not_nil!.name.should eq("Updated Node 1")
+        updated_node.not_nil!.description.should eq("Updated Description 1")
+      end
+
+      it "updates a node by its ID" do
+        workspace = Workspace.new("Test Workspace", config_path)
+        node1 = Node.new("Node 1", "Description 1", "node_id_1")
+        node2 = Node.new("Node 2", "Description 2", "node_id_2")
+        workspace.add_node(node1)
+        workspace.add_node(node2)
+        workspace.save_config
+        
+        json_cmd = {
+          "action" => "update_node",
+          "parameters" => {
+            "id" => "node_id_2",
+            "name" => "Updated Node 2",
+            "description" => "Updated Description 2"
+          }
+        }.to_json
+
+        response = "Let me update that node: <JSON_CMD>#{json_cmd}<END_JSON_CMD>"
+        result = LMRoutines.process_json_commands(response, workspace)
+
+        result.should_not be_nil
+        result.not_nil!.should contain("updated")
+        
+        # Verify the node was actually updated
+        updated_node = workspace.get_node_by_id("node_id_2")
+        updated_node.should_not be_nil
+        updated_node.not_nil!.name.should eq("Updated Node 2")
+        updated_node.not_nil!.description.should eq("Updated Description 2")
+      end
+
+      it "deletes a node by its display index" do
+        workspace = Workspace.new("Test Workspace", config_path)
+        node1 = Node.new("Node 1", "Description 1", "node_id_1")
+        node2 = Node.new("Node 2", "Description 2", "node_id_2")
+        workspace.add_node(node1)
+        workspace.add_node(node2)
+        workspace.save_config
+        
+        # First count the nodes
+        initial_node_count = workspace.nodes.size
+        
+        json_cmd = {
+          "action" => "delete_node",
+          "parameters" => {
+            "index" => 1
+          }
+        }.to_json
+
+        response = "Let me delete that node: <JSON_CMD>#{json_cmd}<END_JSON_CMD>"
+        result = LMRoutines.process_json_commands(response, workspace)
+
+        result.should_not be_nil
+        result.not_nil!.should contain("deleted")
+        
+        # Verify the node was actually deleted
+        workspace.nodes.size.should eq(initial_node_count - 1)
+        workspace.get_node_by_id("node_id_2").should be_nil
+      end
+
+      it "deletes a node by its ID" do
+        workspace = Workspace.new("Test Workspace", config_path)
+        node1 = Node.new("Node 1", "Description 1", "node_id_1")
+        node2 = Node.new("Node 2", "Description 2", "node_id_2")
+        node3 = Node.new("Node 3", "Description 3", "node_id_3")
+        workspace.add_node(node1)
+        workspace.add_node(node2)
+        workspace.add_node(node3)
+        workspace.save_config
+        
+        # First count the nodes
+        initial_node_count = workspace.nodes.size
+        
+        json_cmd = {
+          "action" => "delete_node",
+          "parameters" => {
+            "id" => "node_id_3"
+          }
+        }.to_json
+
+        response = "Let me delete that node: <JSON_CMD>#{json_cmd}<END_JSON_CMD>"
+        result = LMRoutines.process_json_commands(response, workspace)
+
+        result.should_not be_nil
+        result.not_nil!.should contain("deleted")
+        
+        # Verify the node was actually deleted
+        workspace.nodes.size.should eq(initial_node_count - 1)
+        workspace.get_node_by_id("node_id_3").should be_nil
+      end
+
+      it "adds a relationship between nodes using display indices" do
+        workspace = Workspace.new("Test Workspace", config_path)
+        node1 = Node.new("Node 1", "Description 1", "node_id_1")
+        node2 = Node.new("Node 2", "Description 2", "node_id_2")
+        node3 = Node.new("Node 3", "Description 3", "node_id_3")
+        workspace.add_node(node1)
+        workspace.add_node(node2)
+        workspace.add_node(node3)
+        workspace.save_config
+        
+        json_cmd = {
+          "action" => "add_relationship",
+          "parameters" => {
+            "parent_index" => 0,
+            "child_index" => 2
+          }
+        }.to_json
+
+        response = "Let me create a relationship: <JSON_CMD>#{json_cmd}<END_JSON_CMD>"
+        result = LMRoutines.process_json_commands(response, workspace)
+
+        result.should_not be_nil
+        result.not_nil!.should contain("added")
+        
+        # Verify the relationship was created
+        parent = workspace.get_node_by_index(0)
+        child = workspace.get_node_by_index(2)
+        
+        parent.should_not be_nil
+        child.should_not be_nil
+        parent.not_nil!.successors.should contain(child.not_nil!.id)
+        child.not_nil!.predecessors.should contain(parent.not_nil!.id)
+      end
+
+      it "adds a relationship between nodes using IDs" do
+        workspace = Workspace.new("Test Workspace", config_path)
+        node1 = Node.new("Node 1", "Description 1", "node_id_1")
+        node2 = Node.new("Node 2", "Description 2", "node_id_2")
+        workspace.add_node(node1)
+        workspace.add_node(node2)
+        workspace.save_config
+        
+        json_cmd = {
+          "action" => "add_relationship",
+          "parameters" => {
+            "parent_id" => "node_id_1",
+            "child_id" => "node_id_2"
+          }
+        }.to_json
+
+        response = "Let me create a relationship: <JSON_CMD>#{json_cmd}<END_JSON_CMD>"
+        result = LMRoutines.process_json_commands(response, workspace)
+
+        result.should_not be_nil
+        result.not_nil!.should contain("added")
+        
+        # Verify the relationship was created
+        parent = workspace.get_node_by_id("node_id_1")
+        child = workspace.get_node_by_id("node_id_2")
+        
+        parent.should_not be_nil
+        child.should_not be_nil
+        parent.not_nil!.successors.should contain(child.not_nil!.id)
+        child.not_nil!.predecessors.should contain(parent.not_nil!.id)
+      end
+    end
+    
     it "returns nil if no JSON command is found" do
       workspace = Workspace.new("Test Workspace", Path.new("test_config.json"))
       response = "This is a normal response with no commands"
