@@ -227,4 +227,30 @@ class Workspace
       
       node.predecessors.compact_map { |id| get_node_by_id(id) }
     end
+    
+    # Removes a node from the workspace by its ID
+    #
+    # Returns `true` if the node was found and removed, `false` otherwise.
+    def remove_node(id : String) : Bool
+      if node = get_node_by_id(id)
+        # Remove this node from any nodes that reference it
+        @nodes.each do |other_node|
+          other_node.remove_predecessor(id)
+          other_node.remove_successor(id)
+        end
+        
+        # Remove the node from the workspace
+        @nodes.delete(node)
+        save_config
+        return true
+      end
+      return false
+    end
+    
+    # Adds a relationship between two nodes (parent → child)
+    #
+    # Returns `true` on success and `false` on failure.
+    def add_relationship(parent_id : String, child_id : String) : Bool
+      create_dependency(parent_id, child_id)
+    end
   end

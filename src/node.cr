@@ -1,4 +1,5 @@
 require "uuid"
+require "json"
 
 # Represents a single node with a name and description.
 #
@@ -107,5 +108,27 @@ class Node
     # Removes a goal from this node's associations based on the goal's *node_id*
     def remove_goal(node_id : String)
         @goal_ids.delete(node_id)
+    end
+    
+    # Converts the node to JSON format
+    def to_json(json : JSON::Builder)
+      json.object do
+        json.field("id", @id)
+        json.field("name", @name)
+        json.field("description", @description)
+        json.field("predecessors", @predecessors)
+        json.field("successors", @successors)
+        json.field("requirement_ids", @requirement_ids)
+        json.field("goal_ids", @goal_ids)
+      end
+    end
+    
+    # Returns a JSON string representation of the node
+    def to_json : String
+      String.build do |str|
+        JSON.build(str) do |json|
+          to_json(json)
+        end
+      end
     end
   end
