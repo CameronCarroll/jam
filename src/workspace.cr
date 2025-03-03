@@ -17,6 +17,9 @@ class ConfigError < Error; end
 class Workspace
     # This workspace has a name.
     property name : String
+
+    # Location of JSON config file
+    property config_path : Path
   
     # Array of Node objects within this workspace.
     property nodes : Array(Node)
@@ -25,8 +28,9 @@ class Workspace
     property system_prompt : String
   
     # Initializes a new Workspace
-    def initialize(@name : String, @system_prompt = "")
+    def initialize(@name : String, @config_path : Path, @system_prompt = "")
       @name = name
+      @config_path = config_path
       @system_prompt = system_prompt
       @nodes = [] of Node
     end
@@ -65,7 +69,7 @@ class Workspace
       jason_content = workspace_data.to_json
   
       begin
-        File.write(CONFIG_FILE, jason_content)
+        File.write(@config_path, jason_content)
         puts "Workspace config saved to config file #{CONFIG_FILE}"
       rescue e : File::Error
         puts "Error saving configuration: #{e}"
@@ -73,9 +77,9 @@ class Workspace
     end
 
     # Reads config file, parses the JSON and loads workspace with node data.
-    def read_config(config_path) : Nil
+    def read_config : Nil
       begin
-        jason_content = File.read(CONFIG_FILE)
+        jason_content = File.read(@config_path)
         workspace_data = Hash(String, String | Array(Hash(String, String | Array(String)))).from_json(jason_content)
 
         raise ConfigError.new("Expected a hash for workspace config") unless workspace_data.is_a?(Hash)
@@ -153,18 +157,21 @@ class Workspace
     # The index corresponds to the order in which nodes are displayed to the user. This is also the order in which nodes are listed in the JSON file.
     # See `dump_nodes_for_human`.
     def get_node_by_index(index : Int) : Node?
-      return @nodes[index]
+      return @nodes[index]?  
     end
   
     # Removes a node from the workspace by its display index (Not its ID! See `get_node_by_index`)
     def remove_node_by_index(index : Int)
-      @nodes.delete_at(index)
+      if @nodes[index]?
+        @nodes.delete_at(index)
+      end
     end
    
     # Gets a node by ID from our workspace nodes list
     #
     # Returns the node if found, or `nil` if not found.
     def get_node_by_id(id : String) : Node?
+      id = id.gsub(" ") {""}
       @nodes.find { |node| node.id.strip == id }
     end
 

@@ -1,14 +1,1 @@
-[
-    {
-        "name": "First example project - Neurostimulator system redesign",
-        "description": "Business project, developing a neurostimulation system redesign including smaller IPG, redesigned patient controller and physician programmer, a new charger to recharge the IPG, and a backend server for device and patient data."
-    },
-    {
-        "name": "Second example project - LLM Assistant Program",
-        "description": "Evening/weekend coding project with goal of creating a semi or mostly automed project manager / personal assistant"
-    },
-    {
-        "name": "Third example project - Mecha Rat",
-        "description": "Design and development efforts for Mecha Rat, currently in ideation / prototype phase."
-    }
-]
+{"name":"","system_prompt":"","nodes":[{"id":"7b6dfa4f-ad25-4009-8dda-b75c2993f49e","name":"test node 1","description":"test description 1","predecessors":[],"successors":["8e0fb229-ec2e-49f9-8d93-000cdfe05506"],"requirement_ids":[],"goal_ids":[]},{"id":"8e0fb229-ec2e-49f9-8d93-000cdfe05506","name":"test node 2","description":"test dscription 2","predecessors":["7b6dfa4f-ad25-4009-8dda-b75c2993f49e"],"successors":[],"requirement_ids":[],"goal_ids":[]}]}
