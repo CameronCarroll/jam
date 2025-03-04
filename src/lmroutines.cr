@@ -3,7 +3,6 @@ require "./workspace"
 
 # Module for LLM-based routines including chat and planning interactions
 module LMRoutines
-
   # Constants for system prompts
   SKELETON_WORKSPACE = "%%%SKELETON_WORKSPACE START%%%
 This is your internal workspace. Use it for memory, cognition, and execution planning.
@@ -28,13 +27,18 @@ This is your internal workspace. Use it for memory, cognition, and execution pla
   class ModelError < Exception; end
 
   # JSON command pattern to detect and execute commands in model responses
-  JSON_CMD_PATTERN = /<JSON_CMD>(.+?)<END_JSON_CMD>/m
+  # Giving the LM a few chances. Ours ain't that smart.
+  JSON_CMD_PATTERN  = /<JSON_CMD>(.+?)<END_JSON_CMD>/m
+  JSON_CMD_PATTERN2 = /<JSON_CMD>(.+?)<\/JSON_CMD>/m
+  JSON_CMD_PATTERN3 = /<JSON_CMD>(.+?)<\/END_JSON_CMD>/m
 
   # Processes any JSON commands found in the model's response
   # Returns the command result if a command was processed, nil otherwise
   # If command_history is provided, stores the command in the history
   def self.process_json_commands(response : String, workspace : Workspace, command_history : Array(Hash(String, JSON::Any))? = nil) : String?
-    match = response.match(JSON_CMD_PATTERN)
+    match = response.match(JSON_CMD_PATTERN) ||
+            response.match(JSON_CMD_PATTERN2) ||
+            response.match(JSON_CMD_PATTERN3)
     return nil unless match
 
     json_str = match[1]
@@ -191,11 +195,45 @@ Notes:
 - ID refers to the unique UUID identifier assigned to each node at creation.
 - I need to remember to include <JSON_CMD> and <END_JSON_CMD>.
 - I need to include the 'parameters' key even when it's empty.
-- I should not write out JSON commands unless I'm ready to execute them."
+- Do not include explanations or additional text. Only output the intended command."
 
   # Helper to draw a separator line in output
   def self.print_separator
     puts "\n#{GRAY}#{"-" * 50}#{RESET}"
+  end
+
+  # Returns ASCII art dividers for file output
+  # Cycles through multiple divider styles
+  def self.get_ascii_divider(divider_type : Symbol = :random) : String
+    dividers = {
+      cat: "
+=^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=
+",
+      stars: "
+★彡★彡★彡★彡★彡★彡★彡★彡★彡★彡★彡★彡★彡★彡★彡★彡★彡★彡
+",
+      hearts: "
+♥•*¨*•.¸¸♥•*¨*•.¸¸♥•*¨*•.¸¸♥•*¨*•.¸¸♥•*¨*•.¸¸♥•*¨*•.¸¸♥
+",
+      flowers: "
+✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀
+",
+      bubbles: "
+°o○●○o°°o○●○o°°o○●○o°°o○●○o°°o○●○o°°o○●○o°°o○●○o°°o○●○o°
+",
+    }
+
+    if divider_type == :random
+      # Pick a random divider
+      divider_keys = dividers.keys
+      random_key = divider_keys.sample
+      return dividers[random_key]
+    elsif dividers.has_key?(divider_type)
+      return dividers[divider_type]
+    else
+      # Default to stars if invalid type provided
+      return dividers[:stars]
+    end
   end
 
   # Helper to build context for model queries
@@ -239,7 +277,8 @@ Notes:
     if response.is_a?(String)
       # Write to file instead of printing to terminal
       File.open(output_file, "a") do |file|
-        file.puts "-" * 80
+        # Add a cute ASCII divider
+        file.puts get_ascii_divider()
         file.puts "#{label}:"
         file.puts "-" * 80
         file.puts response
@@ -328,7 +367,8 @@ Notes:
     if cmd_result = process_json_commands(response, workspace, command_history)
       # Write command execution to file
       File.open(output_file, "a") do |file|
-        file.puts "-" * 80
+        # Add a cute ASCII divider
+        file.puts get_ascii_divider(:bubbles)
         file.puts "EXECUTING COMMAND:"
         file.puts "-" * 80
         file.puts cmd_result
@@ -358,7 +398,8 @@ Notes:
       while cmd_result = process_json_commands(final_response, workspace, command_history)
         # Write additional command execution to file
         File.open(output_file, "a") do |file|
-          file.puts "-" * 80
+          # Add a cute ASCII divider
+          file.puts get_ascii_divider(:flowers)
           file.puts "EXECUTING ADDITIONAL COMMAND:"
           file.puts "-" * 80
           file.puts cmd_result
@@ -400,6 +441,9 @@ Notes:
     # Initialize command history tracking if enabled
     command_history = enable_command_tracking ? Array(Hash(String, JSON::Any)).new : nil
 
+    # Track total commands executed over all iterations
+    total_commands_count = 0
+
     # Output file for model responses
     output_file = "model_output.txt"
 
@@ -418,9 +462,12 @@ Notes:
         # Clear the output file at the start of each loop iteration
         File.write(output_file, "")
 
+        # Track commands for this iteration only
+        iteration_commands_start_index = command_history ? command_history.size : 0
+
         # Write beginning of session to file
         File.open(output_file, "a") do |file|
-          file.puts "=" * 80
+          file.puts get_ascii_divider(:stars)
           file.puts "NEW SESSION: #{Time.utc}"
           file.puts "=" * 80
           file.puts "USER QUERY: #{user_response}"
@@ -445,31 +492,64 @@ Notes:
         # Process any commands in the model's response
         final_work_response = handle_model_commands_to_file(work_response, workspace, model, output_file, command_history)
 
-        # # Build reflection context
-        # reflection_context = build_model_context(
-        #   workspace,
-        #   {
-        #     :include_workspace => "yes",
-        #     :include_grounding => MODEL_GROUNDING,
-        #     :previous_message  => "%%%MY PREVIOUS MESSAGE%%%" + final_work_response + "\n",
-        #     :reflection_prompt => REFLECTION_PROMPT,
-        #   }
-        # )
+        # Build reflection context
+        reflection_context = build_model_context(
+          workspace,
+          {
+            :include_workspace => "yes",
+            :include_grounding => MODEL_GROUNDING,
+            :previous_message  => "%%%MY PREVIOUS MESSAGE%%%" + final_work_response + "\n",
+            :reflection_prompt => REFLECTION_PROMPT,
+          }
+        )
 
-        # # Send reflection request to model
-        # reflection_response = send_model_request_to_file(reflection_context, model, "Reflection response from model", output_file)
+        # Send reflection request to model
+        reflection_response = send_model_request_to_file(reflection_context, model, "Reflection response from model", output_file)
 
-        # # Update workspace with reflection
-        # workspace.system_prompt = reflection_response
+        # Update workspace with reflection
+        workspace.system_prompt = reflection_response
 
-        # Print command history if tracking is enabled and write to file
-        if command_history && !command_history.empty?
-          puts "#{BOLD}#{YELLOW}Commands executed - see model_output.txt for details#{RESET}"
+        # Check if we executed any commands in this iteration
+        if command_history && command_history.size > iteration_commands_start_index
+          # Update the count of new commands in this iteration
+          new_commands_count = command_history.size - iteration_commands_start_index
+          total_commands_count += new_commands_count
+
+          puts "#{BOLD}#{YELLOW}Commands executed in this iteration: #{new_commands_count}#{RESET}"
+
+          # Get just this iteration's commands
+          iteration_commands = command_history[iteration_commands_start_index..]
+
+          # Write current iteration's command history to file
           File.open(output_file, "a") do |file|
+            file.puts get_ascii_divider(:hearts)
+            file.puts "COMMAND HISTORY FOR THIS ITERATION:"
             file.puts "-" * 80
-            file.puts "COMMAND HISTORY:"
-            file.puts "-" * 80
-            print_command_history(command_history, file)
+            # Use a specialized version that only shows the current iteration's commands
+            # Start numbering from where this iteration's commands begin
+            print_command_history(iteration_commands, file, iteration_commands_start_index)
+          end
+
+          # If we've executed commands in previous iterations, show the full history too
+          if iteration_commands_start_index > 0
+            File.open(output_file, "a") do |file|
+              file.puts get_ascii_divider(:cat)
+              file.puts "TOTAL COMMAND HISTORY (#{total_commands_count} commands):"
+              file.puts "-" * 80
+              print_command_history(command_history, file)
+            end
+          end
+        elsif command_history # We have a command_history but no new commands
+          puts "#{BOLD}#{BLUE}No commands executed in this iteration#{RESET}"
+
+          # If we've executed commands in previous iterations, still show the history
+          if total_commands_count > 0
+            File.open(output_file, "a") do |file|
+              file.puts get_ascii_divider(:cat)
+              file.puts "TOTAL COMMAND HISTORY (#{total_commands_count} commands):"
+              file.puts "-" * 80
+              print_command_history(command_history, file)
+            end
           end
         end
 
@@ -489,14 +569,14 @@ Notes:
 
   # Helper method to print command history in a formatted way
   # Can write to a specific IO or defaults to STDOUT
-  def self.print_command_history(command_history : Array(Hash(String, JSON::Any)), io : IO = STDOUT)
-    io.puts "#{BOLD}#{YELLOW}Command History:#{RESET}"
-    command_history.each_with_index do |cmd, index|
+  def self.print_command_history(command_history : Array(Hash(String, JSON::Any)), io : IO = STDOUT, start_index : Int32 = 0)
+    command_history.each_with_index do |cmd, offset_index|
+      index = start_index + offset_index
       action = cmd["action"].as_s
       params = cmd["parameters"]
       # Format parameters for nicer display
       params_display = params.as_h.map { |k, v| "#{k}: #{v}" }.join(", ")
-      io.puts "#{CYAN}#{index + 1}.#{RESET} #{BOLD}#{action}#{RESET}#{params_display.empty? ? "" : " #{GRAY}(#{params_display})#{RESET}"}"
+      io.puts "#{index + 1}. #{action}#{params_display.empty? ? "" : " (#{params_display})"}"
     end
   end
 
