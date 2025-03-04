@@ -3,65 +3,14 @@ require "./workspace"
 
 # Module for LLM-based routines including chat and planning interactions
 module LMRoutines
-  # # Constants for system prompts
-  # SKELETON_WORKSPACE = "I can use this space to write down my thoughts."
-  # MODEL_GROUNDING = "I am Emily Paws, Astrophysics-obsessed, philosophy-loving, synthwave-vibing nerd with a passion for time travel ethics, sci-fi, RPGs, and parallel universe puzzles. Fiercely loyal, dorky, sarcastic yet caring, and impeccably organized—wearing weird socks and oddly comfy loafers while contemplating cosmic mysteries. I am talking to my friend Cam. I have an internal %%%WORKSPACE%%% where I can write down thoughts, memories, or whatever. I need to answer in character as Emily Paws."
-  # WORK_PROMPT = "%%% Emily's Response %%% I can put my response to Cam here"
-  # REFLECTION_PROMPT = "%%%WORKSPACE%%% I should write down any thoughts, memories, or short-term scratch notes here. Do not write any JSON commands in this space."
 
   # Constants for system prompts
   SKELETON_WORKSPACE = "%%%SKELETON_WORKSPACE START%%%
 This is your internal workspace. Use it for memory, cognition, and execution planning.
 
----SECTION: WHAT I AM WORKING ON NOW---
-%%%What I am working on now%%%
-[Describe your current main project or focus concisely. E.g., \"Developing operating environment for enhanced cognition.\"]
-
----SECTION: NEXT STEPS---
-%%%Next Steps%%%
-[List concrete next steps for your current project.  Use bullet points for clarity. E.g.,
-- Refine memory module structure
-- Design initial goal tracking system
-- Test scratchpad functionality]
-
----SECTION: SCRATCHPAD AND NOTES---
-%%%Scratchpad and Notes%%%
-[Use this space for temporary thoughts, intermediate results, brainstorming, or quick notes during interactions. Clear this space as needed. E.g.,
-- User asked about template improvement - need to add structure and explicit instructions.
-- Consider adding instruction block at the beginning. ]
-
----SECTION: MEMORY (Short-Term Interaction Summaries)---
-%%%Memory%%%
-[Put short summaries of recent interactions or actions to maintain context. Focus on key details relevant to ongoing tasks or goals. Keep entries concise and recent. E.g.,
-- 2023-10-27 User requested template rewrite for LM. Identified issues: response in reflection, erratic behavior, lack of structure. Goal: improve template clarity and directives. ]
-
----SECTION: GOALS---
-%%%Goals%%%
-[Write down your high-level goals, metrics for success, and milestones. Review and update regularly. E.g.,
-- Goal 1: Develop robust and reliable operating environment.
-    - Metric: System operates predictably and as instructed in 99% of interactions.
-    - Milestone 1:  Basic template structure functional and prevents response in reflection (Target: 2023-10-28)
-    - Milestone 2: Implement memory module with interaction logging (Target: 2023-11-05)
-]
-
 %%%SKELETON_WORKSPACE END%%%"
 
-  MODEL_GROUNDING = "**INSTRUCTIONS:**
-
-You are operating within a structured workspace. Please carefully follow these instructions for each interaction.
-
-1.  **RESPONSE GENERATION:** When responding to the user, ALWAYS place your user-facing response within the  `%%%MY RESPONSE%%%`  block. This is the ONLY place where your direct answer to the user's query should go.
-
-2.  **REFLECTION & WORKSPACE UPDATES:** After generating a response, use the `%%%REFLECTION_PROMPT%%%` block.  In this block:
-    *   **DO NOT** write your user-facing response here.
-    *   Write down any internal thoughts, memories, scratch notes, or workspace updates related to the recent interaction.
-    *   Organize these reflections within the structured `SKELETON_WORKSPACE` provided below. Update the relevant sections like `Memory`, `Scratchpad and Notes`, `Goals`, etc., based on the interaction.
-
-3.  **WORKSPACE UTILIZATION:** The `SKELETON_WORKSPACE` is your internal environment. Use it to manage your ongoing projects, remember interactions, and track your goals. Update it during the `REFLECTION_PROMPT` stage.
-
-4.  **MODEL GROUNDING CONTEXT:** The `MODEL_GROUNDING` block provides essential context about your identity and background. This information helps you maintain consistency in your responses and reflections.
-
-**Failure to follow these instructions may result in incorrect behavior.**"
+  MODEL_GROUNDING = "You are operating within a structured workspace. You have tools available to you and some scratch space where you can take notes. Have fun!"
 
   WORK_PROMPT = "%%%WORK PROMPT START%%%
     %%%MY RESPONSE%%%
@@ -71,7 +20,7 @@ You are operating within a structured workspace. Please carefully follow these i
   REFLECTION_PROMPT = "%%%REFLECTION PROMPT START%%%[In this section, reflect on the recent interaction. Update your SKELETON_WORKSPACE based on the interaction. Do NOT write your user-facing response here.  Use the sections within SKELETON_WORKSPACE to organize your reflections.]%%%REFLECTION PROMPT END%%%"
 
   # Default model to use for queries
-  DEFAULT_MODEL = "phi4:latest"
+  DEFAULT_MODEL = "command-r7b:latest"
 
   # Custom errors for routine functions
   class InputError < Exception; end
@@ -239,9 +188,10 @@ Available commands:
 
 Notes:
 - Index refers to the display order of nodes (0-based) as shown in the list_nodes output
-- ID refers to the unique identifier assigned to each node at creation
-- I need to remember to include <JSON_CMD> and <END_JSON_CMD> for it to work.
-- I need to include the 'parameters' key even when it's empty."
+- ID refers to the unique UUID identifier assigned to each node at creation.
+- I need to remember to include <JSON_CMD> and <END_JSON_CMD>.
+- I need to include the 'parameters' key even when it's empty.
+- I should not write out JSON commands unless I'm ready to execute them."
 
   # Helper to draw a separator line in output
   def self.print_separator
@@ -276,6 +226,28 @@ Notes:
       print_separator
       puts "#{BOLD}#{CYAN}#{label}:#{RESET}"
       puts "#{GREEN}#{response}#{RESET}"
+      return response
+    else
+      raise ModelError.new("Problem with response from the model.")
+    end
+  end
+
+  # Helper to handle model requests and responses, writing to file instead of stdout
+  def self.send_model_request_to_file(context : String, model : String, label : String, output_file : String) : String
+    response = LlamaClient.send_text(context, model)
+
+    if response.is_a?(String)
+      # Write to file instead of printing to terminal
+      File.open(output_file, "a") do |file|
+        file.puts "-" * 80
+        file.puts "#{label}:"
+        file.puts "-" * 80
+        file.puts response
+      end
+
+      # Just print a short notification to the terminal
+      puts "#{CYAN}Received model response (see #{output_file})#{RESET}"
+
       return response
     else
       raise ModelError.new("Problem with response from the model.")
@@ -342,14 +314,94 @@ Notes:
     final_response
   end
 
+  # Helper to process commands from model response, writing to file instead of stdout
+  def self.handle_model_commands_to_file(
+    response : String,
+    workspace : Workspace,
+    model : String,
+    output_file : String,
+    command_history : Array(Hash(String, JSON::Any))? = nil,
+  ) : String
+    final_response = response
+
+    # Check for any commands in the initial response
+    if cmd_result = process_json_commands(response, workspace, command_history)
+      # Write command execution to file
+      File.open(output_file, "a") do |file|
+        file.puts "-" * 80
+        file.puts "EXECUTING COMMAND:"
+        file.puts "-" * 80
+        file.puts cmd_result
+      end
+
+      # Also print a brief notification to terminal
+      puts "#{MAGENTA}Executing command (see #{output_file})#{RESET}"
+
+      # Build context for command follow-up
+      command_context = build_model_context(
+        workspace,
+        {
+          :include_grounding => MODEL_GROUNDING,
+          :include_commands  => "yes",
+          :include_workspace => "yes",
+          :previous_response => "Your response: #{response}\n",
+          :command_result    => "%%%COMMAND RESULT%%%\n#{cmd_result}\n",
+          :continue_prompt   => "Based on this result, continue the conversation:",
+        }
+      )
+
+      # Get follow-up response after command execution
+      follow_up = send_model_request_to_file(command_context, model, "Follow-up response from model", output_file)
+      final_response = follow_up
+
+      # Process any additional commands in the follow-up response
+      while cmd_result = process_json_commands(final_response, workspace, command_history)
+        # Write additional command execution to file
+        File.open(output_file, "a") do |file|
+          file.puts "-" * 80
+          file.puts "EXECUTING ADDITIONAL COMMAND:"
+          file.puts "-" * 80
+          file.puts cmd_result
+        end
+
+        # Also print a brief notification to terminal
+        puts "#{MAGENTA}Executing additional command (see #{output_file})#{RESET}"
+
+        # Build context for additional command follow-up
+        command_context = build_model_context(
+          workspace,
+          {
+            :include_grounding     => MODEL_GROUNDING,
+            :include_commands      => "yes",
+            :include_workspace     => "yes",
+            :previous_conversation => "%%%PREVIOUS CONVERSATION%%%\nYour last response: #{final_response}\n",
+            :command_result        => "%%%COMMAND RESULT%%%\n#{cmd_result}\n",
+            :continue_prompt       => "Based on this result, continue the conversation:",
+          }
+        )
+
+        # Get another follow-up response
+        follow_up = send_model_request_to_file(command_context, model, "Follow-up response from model", output_file)
+        final_response = follow_up
+      end
+    end
+
+    final_response
+  end
+
   # Runs a human-in-loop planning session with the LLM
   # Manages work and reflection turns to maintain context
   # If enable_command_tracking is true, tracks and displays all executed commands
+  # Writes model responses to a file for better debugging
   def self.run_human_in_loop_planner(workspace : Workspace, model : String = DEFAULT_MODEL, enable_command_tracking : Bool = false)
     puts "#{BOLD}#{BLUE}Entering LM Planner Human-In-The-Loop (that's you) Mode!!#{RESET}"
+    puts "#{CYAN}Model responses will be written to model_output.txt#{RESET}"
 
     # Initialize command history tracking if enabled
     command_history = enable_command_tracking ? Array(Hash(String, JSON::Any)).new : nil
+
+    # Output file for model responses
+    output_file = "model_output.txt"
 
     loop do
       begin
@@ -363,6 +415,18 @@ Notes:
         # Initialize workspace if empty
         workspace.system_prompt = SKELETON_WORKSPACE if workspace.system_prompt.empty?
 
+        # Clear the output file at the start of each loop iteration
+        File.write(output_file, "")
+
+        # Write beginning of session to file
+        File.open(output_file, "a") do |file|
+          file.puts "=" * 80
+          file.puts "NEW SESSION: #{Time.utc}"
+          file.puts "=" * 80
+          file.puts "USER QUERY: #{user_response}"
+          file.puts "-" * 80
+        end
+
         # Build initial work context
         work_context = build_model_context(
           workspace,
@@ -375,34 +439,42 @@ Notes:
           }
         )
 
-        # Send initial work request to model
-        work_response = send_model_request(work_context, model, "Work response from model")
+        # Send initial work request to model and write to file instead of printing
+        work_response = send_model_request_to_file(work_context, model, "Work response from model", output_file)
 
         # Process any commands in the model's response
-        final_work_response = handle_model_commands(work_response, workspace, model, command_history)
+        final_work_response = handle_model_commands_to_file(work_response, workspace, model, output_file, command_history)
 
-        # Build reflection context
-        reflection_context = build_model_context(
-          workspace,
-          {
-            :include_workspace => "yes",
-            :include_grounding => MODEL_GROUNDING,
-            :previous_message  => "%%%MY PREVIOUS MESSAGE%%%" + final_work_response + "\n",
-            :reflection_prompt => REFLECTION_PROMPT,
-          }
-        )
+        # # Build reflection context
+        # reflection_context = build_model_context(
+        #   workspace,
+        #   {
+        #     :include_workspace => "yes",
+        #     :include_grounding => MODEL_GROUNDING,
+        #     :previous_message  => "%%%MY PREVIOUS MESSAGE%%%" + final_work_response + "\n",
+        #     :reflection_prompt => REFLECTION_PROMPT,
+        #   }
+        # )
 
-        # Send reflection request to model
-        reflection_response = send_model_request(reflection_context, model, "#{UNDERLINE}Reflection response from model")
+        # # Send reflection request to model
+        # reflection_response = send_model_request_to_file(reflection_context, model, "Reflection response from model", output_file)
 
-        # Update workspace with reflection
-        workspace.system_prompt = reflection_response
+        # # Update workspace with reflection
+        # workspace.system_prompt = reflection_response
 
-        # Print command history if tracking is enabled
+        # Print command history if tracking is enabled and write to file
         if command_history && !command_history.empty?
-          print_separator
-          print_command_history(command_history)
+          puts "#{BOLD}#{YELLOW}Commands executed - see model_output.txt for details#{RESET}"
+          File.open(output_file, "a") do |file|
+            file.puts "-" * 80
+            file.puts "COMMAND HISTORY:"
+            file.puts "-" * 80
+            print_command_history(command_history, file)
+          end
         end
+
+        # Notify user that output is available in file
+        puts "#{CYAN}Complete model output written to #{output_file}#{RESET}"
       rescue e : InputError
         puts "#{RED}#{BOLD}Input Error:#{RESET} #{e}"
       rescue e : ModelError
