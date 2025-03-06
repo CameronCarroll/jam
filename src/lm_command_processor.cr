@@ -10,7 +10,7 @@ module LMCommandProcessor
   JSON_CMD_PATTERN3 = /<JSON_CMD>(.+?)<\/END_JSON_CMD>/m
 
   # Command instructions for the model to use JSON commands
-  COMMAND_INSTRUCTIONS = "I can execute commands by including JSON in this format:
+  COMMAND_INSTRUCTIONS = "You can execute commands by including JSON in this format:
 <JSON_CMD>{\"action\": \"command_name\", \"parameters\": {\"param1\": \"value1\"}}<END_JSON_CMD>
 
 Available commands:
@@ -20,14 +20,14 @@ Available commands:
 - update_node: Updates a node's properties (params: either index or id, plus name?, description?)
 - delete_node: Removes a node (params: either index or id)
 - add_relationship: Creates a dependency between nodes (params: either parent_index & child_index or parent_id & child_id)
-- generate_plan: Creates an execution plan based on dependencies
+- execution_sequence: Creates an execution sequence based on dependencies
 - show_dependencies: Shows the dependency graph
 
 Notes:
 - Index refers to the display order of nodes (0-based) as shown in the list_nodes output
 - ID refers to the unique UUID identifier assigned to each node at creation.
-- I need to remember to include <JSON_CMD> and <END_JSON_CMD>.
-- I need to include the 'parameters' key even when it's empty.
+- You need to remember to include <JSON_CMD> and <END_JSON_CMD>.
+- You need to include the 'parameters' key even when it's empty.
 - Do not include explanations or additional text. Only output the intended command."
 
   # Processes any JSON commands found in the model's response
@@ -78,8 +78,8 @@ Notes:
       handle_delete_node(parameters, workspace)
     when "add_relationship"
       handle_add_relationship(parameters, workspace)
-    when "generate_plan"
-      Planner.generate_execution_plan(workspace)
+    when "execution_sequence"
+      Planner.generate_execution_sequence(workspace)
     when "show_dependencies"
       Planner.dump_dependency_graph(workspace)
     else
@@ -215,29 +215,32 @@ Notes:
       follow_up = LMRoutines.send_model_request(command_context, model, "Follow-up response from model")
       final_response = follow_up
 
+      # FEEDBACK LOOP IS BELOW
+      # Disabled because it's a wild time.
+
       # Process any additional commands in the follow-up response
-      while cmd_result = process_json_commands(final_response, workspace, command_history)
-        LMUI.print_separator
-        puts "#{LMUI::BOLD}#{LMUI::MAGENTA}Executing additional command:#{LMUI::RESET}"
-        puts "#{LMUI::YELLOW}#{cmd_result}#{LMUI::RESET}"
+      # while cmd_result = process_json_commands(final_response, workspace, command_history)
+      #   LMUI.print_separator
+      #   puts "#{LMUI::BOLD}#{LMUI::MAGENTA}Executing additional command:#{LMUI::RESET}"
+      #   puts "#{LMUI::YELLOW}#{cmd_result}#{LMUI::RESET}"
 
-        # Build context for additional command follow-up
-        command_context = LMRoutines.build_model_context(
-          workspace,
-          {
-            :include_grounding     => LMRoutines::MODEL_GROUNDING,
-            :include_commands      => "yes",
-            :include_workspace     => "yes",
-            :previous_conversation => "%%%PREVIOUS CONVERSATION%%%\nYour last response: #{final_response}\n",
-            :command_result        => "%%%COMMAND RESULT%%%\n#{cmd_result}\n",
-            :continue_prompt       => "Based on this result, continue the conversation:",
-          }
-        )
+      #   # Build context for additional command follow-up
+      #   command_context = LMRoutines.build_model_context(
+      #     workspace,
+      #     {
+      #       :include_grounding     => LMRoutines::MODEL_GROUNDING,
+      #       :include_commands      => "yes",
+      #       :include_workspace     => "yes",
+      #       :previous_conversation => "%%%PREVIOUS CONVERSATION%%%\nYour last response: #{final_response}\n",
+      #       :command_result        => "%%%COMMAND RESULT%%%\n#{cmd_result}\n",
+      #       :continue_prompt       => "Based on this result, continue the conversation:",
+      #     }
+      #   )
 
-        # Get another follow-up response
-        follow_up = LMRoutines.send_model_request(command_context, model, "Follow-up response from model")
-        final_response = follow_up
-      end
+      #   # Get another follow-up response
+      #   follow_up = LMRoutines.send_model_request(command_context, model, "Follow-up response from model")
+      #   final_response = follow_up
+      # end
     end
 
     final_response

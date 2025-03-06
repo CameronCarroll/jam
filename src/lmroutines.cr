@@ -4,20 +4,19 @@ require "./lm_command_processor"
 require "./lm_ui"
 require "./lm_planner"
 
-# Core module for LLM-based interactions - slimmed down to core functionality
+# Core module for LLM-based interactions 
 module LMRoutines
   # Constants for system prompts
-  SKELETON_WORKSPACE = "%%%SKELETON_WORKSPACE START%%%
-This is your internal workspace. Use it for memory, cognition, and execution planning.
+#   SKELETON_WORKSPACE = "%%%SKELETON_WORKSPACE START%%%
+# This is your internal workspace. Use it for memory, cognition, and execution planning.
 
-%%%SKELETON_WORKSPACE END%%%"
+# %%%SKELETON_WORKSPACE END%%%"
+SKELETON_WORKSPACE = ""
 
-  MODEL_GROUNDING = "You are operating within a structured workspace. You have tools available to you and some scratch space where you can take notes. Have fun!"
+  MODEL_GROUNDING = "You are operating within a structured workspace. You have tools available to you."
 
-  WORK_PROMPT = "%%%WORK PROMPT START%%%
-    %%%MY RESPONSE%%%
-    [This is where your direct response to the user should be placed. Write your answer here.]
-    %%%WORK PROMPT END%%%"
+  WORK_PROMPT = "%%%MY RESPONSE%%%
+    [This is where your direct response to the user should be placed. Write your answer here.]"
 
   REFLECTION_PROMPT = "%%%REFLECTION PROMPT START%%%[In this section, reflect on the recent interaction. Update your SKELETON_WORKSPACE based on the interaction. Do NOT write your user-facing response here.  Use the sections within SKELETON_WORKSPACE to organize your reflections.]%%%REFLECTION PROMPT END%%%"
 
@@ -33,7 +32,7 @@ This is your internal workspace. Use it for memory, cognition, and execution pla
     context = String.new
 
     # Always include workspace and grounding
-    context += "%%%WORKSPACE%%%" + workspace.system_prompt + "\n" if parts.has_key?(:include_workspace)
+    context += workspace.system_prompt + "\n" if parts.has_key?(:include_workspace)
     context += MODEL_GROUNDING if parts.has_key?(:include_grounding)
 
     # Add optional components
@@ -48,19 +47,19 @@ This is your internal workspace. Use it for memory, cognition, and execution pla
     context
   end
 
-  # Helper to handle model requests and responses
-  def self.send_model_request(context : String, model : String, label : String) : String
-    response = LlamaClient.send_text(context, model)
+  # # Helper to handle model requests and responses
+  # def self.send_model_request(context : String, model : String, label : String) : String
+  #   response = LlamaClient.send_text(context, model)
 
-    if response.is_a?(String)
-      LMUI.print_separator
-      puts "#{LMUI::BOLD}#{LMUI::CYAN}#{label}:#{LMUI::RESET}"
-      puts "#{LMUI::GREEN}#{response}#{LMUI::RESET}"
-      return response
-    else
-      raise ModelError.new("Problem with response from the model.")
-    end
-  end
+  #   if response.is_a?(String)
+  #     LMUI.print_separator
+  #     puts "#{LMUI::BOLD}#{LMUI::CYAN}#{label}:#{LMUI::RESET}"
+  #     puts "#{LMUI::GREEN}#{response}#{LMUI::RESET}"
+  #     return response
+  #   else
+  #     raise ModelError.new("Problem with response from the model.")
+  #   end
+  # end
 
   # Runs a human-in-loop planning session with the LLM
   # Delegates to specialized components

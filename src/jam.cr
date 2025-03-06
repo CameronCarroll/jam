@@ -110,5 +110,5 @@ if nodeedit
 end
 
 if execution_plan
-  puts Planner.generate_execution_plan(workspace)
+  puts Planner.generate_execution_sequence(workspace)
 end

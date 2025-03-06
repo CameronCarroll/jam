@@ -104,7 +104,7 @@ module Planner
     # Requires passing in the workspace object for data/method access.
     # 
     # Returns a multiline string execution plan (human/LM readable)
-    def self.generate_execution_plan(workspace : Workspace) : String
+    def self.generate_execution_sequence(workspace : Workspace) : String
     ordered_nodes = get_node_execution_order(workspace)
     
     result = String.new

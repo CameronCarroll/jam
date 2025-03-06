@@ -21,22 +21,11 @@ module LMUI
   # Cycles through multiple divider styles
   def self.get_ascii_divider(divider_type : Symbol = :random) : String
     dividers = {
-      cat: "
-=^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=
-",
-      stars: "
-★彡★彡★彡★彡★彡★彡★彡★彡★彡★彡★彡★彡★彡★彡★彡★彡★彡★彡
-",
-      hearts: "
-♥•*¨*•.¸¸♥•*¨*•.¸¸♥•*¨*•.¸¸♥•*¨*•.¸¸♥•*¨*•.¸¸♥•*¨*•.¸¸♥
-",
-      flowers: "
-✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀
-",
-      bubbles: "
-°o○●○o°°o○●○o°°o○●○o°°o○●○o°°o○●○o°°o○●○o°°o○●○o°°o○●○o°
-",
-    }
+      cat: "=^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=",
+      stars: "★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★",
+      hearts: "♥•*¨*•.¸¸♥•*¨*•.¸¸♥•*¨*•.¸¸♥•*¨*•.¸¸♥•*¨*•.¸¸♥•*¨*•.¸¸♥",
+      flowers: "✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀",
+      bubbles: "°o○●○o°°o○●○o°°o○●○o°°o○●○o°°o○●○o°°o○●○o°°o○●○o°°o○●○o°"}
 
     if divider_type == :random
       # Pick a random divider
@@ -51,13 +40,14 @@ module LMUI
     end
   end
   
-  # Write model responses to file instead of stdout
-  def self.send_model_request_to_file(
+  # Send request to model and write response to output file (along with some pretty ASCII dividers)
+  #
+  # Returns a String with the model response.
+  def self.send_model_request(
     context : String, 
     model : String, 
     label : String, 
-    output_file : String
-  ) : String
+    output_file : String) : String
     response = LlamaClient.send_text(context, model)
 
     if response.is_a?(String)
@@ -76,6 +66,21 @@ module LMUI
       return response
     else
       raise LMRoutines::ModelError.new("Problem with response from the model.")
+    end
+  end
+
+  # Write context to output file for logging
+  #
+  # Returns nil
+  def self.log_context(
+    context : String,
+    label : String,
+    output_file : String)
+    File.open(output_file, "a") do |file|
+      file.puts get_ascii_divider()
+      file.puts("#{label}")
+      file.puts "-" * 80
+      file.puts context
     end
   end
 end
