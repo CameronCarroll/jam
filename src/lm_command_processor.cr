@@ -13,6 +13,12 @@ module LMCommandProcessor
   COMMAND_INSTRUCTIONS = "You can execute commands by including JSON in this format:
 <JSON_CMD>{\"action\": \"command_name\", \"parameters\": {\"param1\": \"value1\"}}<END_JSON_CMD>
 
+You can also execute multiple commands at once using an array:
+<JSON_CMD>[
+  {\"action\": \"command_name1\", \"parameters\": {\"param1\": \"value1\"}},
+  {\"action\": \"command_name2\", \"parameters\": {\"param1\": \"value1\"}}
+]<END_JSON_CMD>
+
 Available commands:
 - list_nodes: Lists all nodes in the workspace
 - add_node: Creates a new node (params: name, description)
@@ -28,11 +34,13 @@ Notes:
 - ID refers to the unique UUID identifier assigned to each node at creation.
 - You need to remember to include <JSON_CMD> and <END_JSON_CMD>.
 - You need to include the 'parameters' key even when it's empty.
-- Do not include explanations or additional text. Only output the intended command."
+- For multiple commands, they will be executed in order, and all results will be shown.
+- Do not include explanations or additional text. Only output the intended command(s)."
 
   # Processes any JSON commands found in the model's response
   # Returns the command result if a command was processed, nil otherwise
   # If command_history is provided, stores the command in the history
+  # Now supports both single command objects and arrays of command objects
   def self.process_json_commands(response : String, workspace : Workspace, command_history : Array(Hash(String, JSON::Any))? = nil) : String?
     match = response.match(JSON_CMD_PATTERN) ||
             response.match(JSON_CMD_PATTERN2) ||
@@ -41,19 +49,48 @@ Notes:
 
     json_str = match[1]
     begin
-      cmd_data = JSON.parse(json_str)
-      action = cmd_data["action"].as_s
-      parameters = cmd_data["parameters"]
-
-      # Add to command history if tracking is enabled
-      if command_history
-        command_history << {"action" => JSON::Any.new(action), "parameters" => parameters}
+      parsed_data = JSON.parse(json_str)
+      
+      # Handle array of commands
+      if parsed_data.as_a?
+        commands = parsed_data.as_a
+        
+        if commands.empty?
+          return "No commands to execute"
+        end
+        
+        results = [] of String
+        
+        commands.each do |cmd_data|
+          action = cmd_data["action"].as_s
+          parameters = cmd_data["parameters"]
+          
+          # Add to command history if tracking is enabled
+          if command_history
+            command_history << {"action" => JSON::Any.new(action), "parameters" => parameters}
+          end
+          
+          # Execute the requested command based on action type
+          result = execute_command(action, parameters, workspace)
+          results << "Command result for '#{action}':\n#{result}"
+        end
+        
+        return results.join("\n\n")
+      else
+        # Handle single command (original functionality)
+        action = parsed_data["action"].as_s
+        parameters = parsed_data["parameters"]
+        
+        # Add to command history if tracking is enabled
+        if command_history
+          command_history << {"action" => JSON::Any.new(action), "parameters" => parameters}
+        end
+        
+        # Execute the requested command based on action type
+        result = execute_command(action, parameters, workspace)
+        
+        return "Command result for '#{action}':\n#{result}"
       end
-
-      # Execute the requested command based on action type
-      result = execute_command(action, parameters, workspace)
-
-      return "Command result for '#{action}':\n#{result}"
     rescue e
       return "Error processing command: #{e.message}\nJSON: #{json_str}"
     end
@@ -188,14 +225,18 @@ Notes:
     response : String,
     workspace : Workspace,
     model : String,
-    command_history : Array(Hash(String, JSON::Any))? = nil,
-  ) : String
+    command_history : Array(Hash(String, JSON::Any))? = nil) : String
     final_response = response
 
     # Check for any commands in the initial response
     if cmd_result = process_json_commands(response, workspace, command_history)
       LMUI.print_separator
-      puts "#{LMUI::BOLD}#{LMUI::MAGENTA}Executing command:#{LMUI::RESET}"
+      # Check if we're dealing with multiple commands (contains multiple command results)
+      if cmd_result.includes?("Command result for") && cmd_result.scan("Command result for").size > 1
+        puts "#{LMUI::BOLD}#{LMUI::MAGENTA}Executing multiple commands:#{LMUI::RESET}"
+      else
+        puts "#{LMUI::BOLD}#{LMUI::MAGENTA}Executing command:#{LMUI::RESET}"
+      end
       puts "#{LMUI::YELLOW}#{cmd_result}#{LMUI::RESET}"
 
       # Build context for command follow-up

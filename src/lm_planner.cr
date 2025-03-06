@@ -47,36 +47,36 @@ module LMPlanner
       final_response = follow_up
 
       # Process any additional commands in the follow-up response
-      while cmd_result = LMCommandProcessor.process_json_commands(final_response, workspace, command_history)
-        # Write additional command execution to file
-        File.open(output_file, "a") do |file|
-          # Add a cute ASCII divider
-          file.puts LMUI.get_ascii_divider(:flowers)
-          file.puts "EXECUTING ADDITIONAL COMMAND:"
-          file.puts "-" * 80
-          file.puts cmd_result
-        end
+      # while cmd_result = LMCommandProcessor.process_json_commands(final_response, workspace, command_history)
+      #   # Write additional command execution to file
+      #   File.open(output_file, "a") do |file|
+      #     # Add a cute ASCII divider
+      #     file.puts LMUI.get_ascii_divider(:flowers)
+      #     file.puts "EXECUTING ADDITIONAL COMMAND:"
+      #     file.puts "-" * 80
+      #     file.puts cmd_result
+      #   end
 
-        # Also print a brief notification to terminal
-        puts "#{LMUI::MAGENTA}Executing additional command (see #{output_file})#{LMUI::RESET}"
+      #   # Also print a brief notification to terminal
+      #   puts "#{LMUI::MAGENTA}Executing additional command (see #{output_file})#{LMUI::RESET}"
 
-        # Build context for additional command follow-up
-        command_context = LMRoutines.build_model_context(
-          workspace,
-          {
-            :include_grounding     => LMRoutines::MODEL_GROUNDING,
-            :include_commands      => "yes",
-            :include_workspace     => "yes",
-            :previous_conversation => "%%%PREVIOUS CONVERSATION%%%\nYour last response: #{final_response}\n",
-            :command_result        => "%%%COMMAND RESULT%%%\n#{cmd_result}\n",
-            :continue_prompt       => "Based on this result, continue the conversation:",
-          }
-        )
+      #   # Build context for additional command follow-up
+      #   command_context = LMRoutines.build_model_context(
+      #     workspace,
+      #     {
+      #       :include_grounding     => LMRoutines::MODEL_GROUNDING,
+      #       :include_commands      => "yes",
+      #       :include_workspace     => "yes",
+      #       :previous_conversation => "%%%PREVIOUS CONVERSATION%%%\nYour last response: #{final_response}\n",
+      #       :command_result        => "%%%COMMAND RESULT%%%\n#{cmd_result}\n",
+      #       :continue_prompt       => "Based on this result, continue the conversation:",
+      #     }
+      #   )
 
-        # Get another follow-up response
-        follow_up = LMUI.send_model_request(command_context, model, "Follow-up response from model", output_file)
-        final_response = follow_up
-      end
+      #   # Get another follow-up response
+      #   follow_up = LMUI.send_model_request(command_context, model, "Follow-up response from model", output_file)
+      #   final_response = follow_up
+      # end
     end
 
     final_response

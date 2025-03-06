@@ -23,6 +23,31 @@ module LlamaClient
   end
 end
 
+# Mock workspace for testing LMCommandProcessor
+class TestWorkspace < Workspace
+  def initialize
+    super("Test", Path["test_path"])
+  end
+  
+  def dump_nodes_for_human
+    "No nodes"
+  end
+  
+  def add_node(node)
+    # Just return success
+    true
+  end
+  
+  def get_node_by_index(index)
+    # Return a dummy node
+    Node.new("Test Node", "Test Description")
+  end
+  
+  def save_config
+    # Do nothing in tests
+  end
+end
+
 # Setup test config path for LMRoutines specs
 LM_CONFIG_FILE_TEST = "test_config_lmroutines.json"
 
@@ -75,6 +100,37 @@ describe LMCommandProcessor do
   # Basic test to make sure the module is defined
   it "exists as a module" do
     LMCommandProcessor.should be_truthy
+  end
+
+  describe ".process_json_commands" do
+    # Set up a workspace that we can use for testing
+    workspace = TestWorkspace.new
+    
+    it "processes a single command from a response string" do
+      response = "<JSON_CMD>{\"action\": \"list_nodes\", \"parameters\": {}}<END_JSON_CMD>"
+      
+      result = LMCommandProcessor.process_json_commands(response, workspace)
+      result.should_not be_nil
+      result.as(String).should contain("Command result for 'list_nodes'")
+    end
+    
+    it "processes an array of commands from a response string" do
+      response = "<JSON_CMD>[{\"action\": \"add_node\", \"parameters\": {\"name\": \"Test Node\", \"description\": \"Test Description\"}}, {\"action\": \"list_nodes\", \"parameters\": {}}]<END_JSON_CMD>"
+      
+      result = LMCommandProcessor.process_json_commands(response, workspace)
+      result.should_not be_nil
+      result = result.as(String)
+      result.should contain("Command result for 'add_node'")
+      result.should contain("Command result for 'list_nodes'")
+    end
+    
+    it "handles empty command arrays" do
+      response = "<JSON_CMD>[]<END_JSON_CMD>"
+      
+      result = LMCommandProcessor.process_json_commands(response, workspace)
+      result.should_not be_nil
+      result.as(String).should contain("No commands to execute")
+    end
   end
 
   # Commented out more complex tests for now
