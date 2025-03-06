@@ -94,7 +94,10 @@ module LMPlanner
     command_history = enable_command_tracking ? Array(Hash(String, JSON::Any)).new : nil
 
     # Output file for model responses
-    output_file = "model_output.txt"
+    work_output_file = "output/work_output.txt"
+    command_output_file = "output/command_output.txt"
+    followup_output_file = "output/followup_output.txt"
+    reflection_output_file = "output/reflection_output.txt"
 
     loop do
       begin
@@ -109,18 +112,20 @@ module LMPlanner
 
         # Initialize workspace if empty
         workspace.system_prompt = LMRoutines::SKELETON_WORKSPACE if workspace.system_prompt.empty?
+        [work_output_file, command_output_file, followup_output_file, reflection_output_file].each do |file|
+          File.write(file, "")
 
-        # Clear the output file at the start of each loop iteration
-        File.write(output_file, "")
-
-        # Write beginning of session to file
-        File.open(output_file, "a") do |file|
-          file.puts LMUI.get_ascii_divider(:stars)
-          file.puts "NEW SESSION: #{Time.utc}"
-          file.puts "=" * 80
-          file.puts "USER QUERY: #{user_response}"
-          file.puts "-" * 80
+          # Write beginning of session to file
+          File.open(file, "a") do |f|
+            f.puts LMUI.get_ascii_divider(:stars)
+            f.puts "NEW SESSION: #{Time.utc}"
+            f.puts "=" * 80
+            f.puts "USER QUERY: #{user_response}"
+            f.puts "-" * 80
+          end
         end
+        # Clear the output file at the start of each loop iteration
+        
 
         # ---------------------------------------------- #
         # STEP 1: Build Work Context - Get Work Response #
@@ -136,8 +141,9 @@ module LMPlanner
             :work_prompt       => LMRoutines::WORK_PROMPT,
           }
         )
-        LMUI.log_context(work_context, "Work Context", output_file) # writes context to output_file
-        work_response = LMUI.send_model_request(work_context, model, "Work response from model", output_file) # writes result to output_file
+        work_context += Planner.generate_execution_sequence(workspace)
+        LMUI.log_context(work_context, "Work Context", work_output_file) # writes context to output_file
+        work_response = LMUI.send_model_request(work_context, model, "Work response from model", work_output_file) # writes result to output_file
 
         # ------------------------ #
         # STEP 2: Command Response #
@@ -153,18 +159,39 @@ module LMPlanner
             :work_prompt => ""
           }
         )
-        LMUI.log_context(command_context, "Command Context", output_file)
-        command_response = LMUI.send_model_request(command_context, model, "Command response from model", output_file)
+        LMUI.log_context(command_context, "Command Context", command_output_file)
+        command_response = LMUI.send_model_request(command_context, model, "Command response from model", command_output_file)
 
         # ------------------------------- #
-        # STEP 3: Command Processing Loop #
+        # STEP 3: Command Processing      #
         # ------------------------------- #
-        final_response = handle_model_commands(command_response, workspace, model, output_file, command_history)
+        final_response = handle_model_commands(command_response, workspace, model, followup_output_file, command_history)
+
+        # ------------------------------- #
+        # STEP 4: Reflection              #
+        # ------------------------------- #
+
+        # Build reflection context
+        reflection_context = LMRoutines.build_model_context(
+          workspace,
+          {
+            :include_workspace => "yes",
+            :include_grounding => LMRoutines::MODEL_GROUNDING,
+            :previous_message  => "%%%MY PREVIOUS MESSAGE%%%" + final_response + "\n",
+            :reflection_prompt => LMRoutines::REFLECTION_PROMPT,
+          }
+        )
+
+        # Send reflection request to model
+        reflection_response = LMUI.send_model_request(reflection_context, model, "Reflection response from model", reflection_output_file)
+
+        # Update workspace with reflection
+        workspace.system_prompt = reflection_response
 
         # Print command history if tracking is enabled and write to file
         if command_history && !command_history.empty?
           puts "#{LMUI::BOLD}#{LMUI::YELLOW}Commands executed - see model_output.txt for details#{LMUI::RESET}"
-          File.open(output_file, "a") do |file|
+          File.open(reflection_output_file, "a") do |file|
             file.puts LMUI.get_ascii_divider(:hearts)
             file.puts "COMMAND HISTORY:"
             file.puts "-" * 80
@@ -173,44 +200,7 @@ module LMPlanner
         end
 
         # Notify user that output is available in file
-        puts "#{LMUI::CYAN}Complete model output written to #{output_file}#{LMUI::RESET}"
-
-        # 
-        # ========================================================================
-
-        # # Process any commands in the model's response
-        # final_work_response = handle_model_commands(work_response, workspace, model, output_file, command_history)
-
-        # # Build reflection context
-        # reflection_context = LMRoutines.build_model_context(
-        #   workspace,
-        #   {
-        #     :include_workspace => "yes",
-        #     :include_grounding => LMRoutines::MODEL_GROUNDING,
-        #     :previous_message  => "%%%MY PREVIOUS MESSAGE%%%" + final_work_response + "\n",
-        #     :reflection_prompt => LMRoutines::REFLECTION_PROMPT,
-        #   }
-        # )
-
-        # # Send reflection request to model
-        # reflection_response = LMUI.send_model_request(reflection_context, model, "Reflection response from model", output_file)
-
-        # # Update workspace with reflection
-        # workspace.system_prompt = reflection_response
-
-        # # Print command history if tracking is enabled and write to file
-        # if command_history && !command_history.empty?
-        #   puts "#{LMUI::BOLD}#{LMUI::YELLOW}Commands executed - see model_output.txt for details#{LMUI::RESET}"
-        #   File.open(output_file, "a") do |file|
-        #     file.puts LMUI.get_ascii_divider(:hearts)
-        #     file.puts "COMMAND HISTORY:"
-        #     file.puts "-" * 80
-        #     LMCommandProcessor.print_command_history(command_history, file)
-        #   end
-        # end
-
-        # # Notify user that output is available in file
-        # puts "#{LMUI::CYAN}Complete model output written to #{output_file}#{LMUI::RESET}"
+        puts "#{LMUI::CYAN}All done!#{LMUI::RESET}"
       rescue e : LMRoutines::InputError
         puts "#{LMUI::RED}#{LMUI::BOLD}Input Error:#{LMUI::RESET} #{e}"
       rescue e : LMRoutines::ModelError

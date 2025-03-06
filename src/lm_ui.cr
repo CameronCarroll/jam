@@ -14,7 +14,7 @@ module LMUI
 
   # Helper to draw a separator line in output
   def self.print_separator
-    puts "\n#{GRAY}#{"-" * 50}#{RESET}"
+    puts "\n\n\n\n#{GRAY}#{"-" * 50}#{RESET}"
   end
 
   # Returns ASCII art dividers for file output
