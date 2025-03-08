@@ -3,25 +3,13 @@ require "./workspace"
 require "./lm_command_processor"
 require "./lm_ui"
 require "./lm_planner"
+require "./lm_prompts"
 
 # Core module for LLM-based interactions 
 module LMRoutines
-  # Constants for system prompts
-#   SKELETON_WORKSPACE = "%%%SKELETON_WORKSPACE START%%%
-# This is your internal workspace. Use it for memory, cognition, and execution planning.
-
-# %%%SKELETON_WORKSPACE END%%%"
-SKELETON_WORKSPACE = ""
-
-  MODEL_GROUNDING = "You are operating within a structured workspace. You have tools available to you."
-
-  WORK_PROMPT = "%%%MY RESPONSE%%%
-    [This is where your direct response to the user should be placed. Write your answer here.]"
-
-  REFLECTION_PROMPT = "%%%REFLECTION PROMPT START%%%[In this section, reflect on the recent interaction. Update your SKELETON_WORKSPACE based on the interaction. Do NOT write your user-facing response here.  Use the sections within SKELETON_WORKSPACE to organize your reflections.]%%%REFLECTION PROMPT END%%%"
 
   # Default model to use for queries
-  DEFAULT_MODEL = "command-r7b:latest"
+  DEFAULT_MODEL = "phi4:latest"
 
   # Custom errors for routine functions
   class InputError < Exception; end
@@ -33,18 +21,18 @@ SKELETON_WORKSPACE = ""
 
     # Always include workspace and grounding
     context += workspace.system_prompt + "\n" if parts.has_key?(:include_workspace)
-    context += MODEL_GROUNDING if parts.has_key?(:include_grounding)
-
-    # Add optional components
-    context += "\n#{LMCommandProcessor::COMMAND_INSTRUCTIONS}\n" if parts.has_key?(:include_commands)
-
+    context += LMPrompts::MODEL_GROUNDING if parts.has_key?(:include_grounding)
+    
     # Add any specific parts provided
     parts.each do |key, value|
       next if [:include_workspace, :include_grounding, :include_commands].includes?(key)
       context += value
     end
 
-    context
+    # Add commands
+    context += "\n#{LMPrompts::COMMAND_INSTRUCTIONS}\n" if parts.has_key?(:include_commands)
+
+    return context
   end
 
   # # Helper to handle model requests and responses

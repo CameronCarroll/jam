@@ -1,6 +1,7 @@
 require "./workspace"
 require "./lm_command_processor"
 require "./lm_ui"
+require "./lm_prompts"
 
 # Module for planning-related functionality
 module LMPlanner
@@ -33,7 +34,7 @@ module LMPlanner
       command_context = LMRoutines.build_model_context(
         workspace,
         {
-          :include_grounding => LMRoutines::MODEL_GROUNDING,
+          :include_grounding => "yes",
           :include_commands  => "yes",
           :include_workspace => "yes",
           :previous_response => "Your response: #{response}\n",
@@ -44,39 +45,40 @@ module LMPlanner
 
       # Get follow-up response after command execution
       follow_up = LMUI.send_model_request(command_context, model, "Follow-up response from model", output_file)
-      final_response = follow_up
+      # final_response = command_context + follow_up
 
-      # Process any additional commands in the follow-up response
-      # while cmd_result = LMCommandProcessor.process_json_commands(final_response, workspace, command_history)
-      #   # Write additional command execution to file
-      #   File.open(output_file, "a") do |file|
-      #     # Add a cute ASCII divider
-      #     file.puts LMUI.get_ascii_divider(:flowers)
-      #     file.puts "EXECUTING ADDITIONAL COMMAND:"
-      #     file.puts "-" * 80
-      #     file.puts cmd_result
-      #   end
+      #Process any additional commands in the follow-up response
+      while cmd_result = LMCommandProcessor.process_json_commands(final_response, workspace, command_history)
+        # Write additional command execution to file
+        File.open(output_file, "a") do |file|
+          # Add a cute ASCII divider
+          file.puts LMUI.get_ascii_divider(:flowers)
+          file.puts "EXECUTING ADDITIONAL COMMAND:"
+          file.puts "-" * 80
+          file.puts cmd_result
+        end
 
-      #   # Also print a brief notification to terminal
-      #   puts "#{LMUI::MAGENTA}Executing additional command (see #{output_file})#{LMUI::RESET}"
+        # Also print a brief notification to terminal
+        puts "#{LMUI::MAGENTA}Executing additional command (see #{output_file})#{LMUI::RESET}"
 
-      #   # Build context for additional command follow-up
-      #   command_context = LMRoutines.build_model_context(
-      #     workspace,
-      #     {
-      #       :include_grounding     => LMRoutines::MODEL_GROUNDING,
-      #       :include_commands      => "yes",
-      #       :include_workspace     => "yes",
-      #       :previous_conversation => "%%%PREVIOUS CONVERSATION%%%\nYour last response: #{final_response}\n",
-      #       :command_result        => "%%%COMMAND RESULT%%%\n#{cmd_result}\n",
-      #       :continue_prompt       => "Based on this result, continue the conversation:",
-      #     }
-      #   )
+        # Build context for additional command follow-up
+        command_context = LMRoutines.build_model_context(
+          workspace,
+          {
+            :include_grounding     => "yes",
+            :include_commands      => "yes",
+            :include_workspace     => "yes",
+            :original_plan         => "%%%YOUR ORIGINAL PLAN%%%: #{response}",
+            :previous_conversation => "%%%PREVIOUS CONVERSATION%%%\nYour last response: #{final_response}\n",
+            :command_result        => "%%%COMMAND RESULT%%%\n#{cmd_result}\n",
+            :continue_prompt       => "Based on this result, determine if there are any further actions that need to be taken:",
+          }
+        )
 
-      #   # Get another follow-up response
-      #   follow_up = LMUI.send_model_request(command_context, model, "Follow-up response from model", output_file)
-      #   final_response = follow_up
-      # end
+        # Get another follow-up response
+        follow_up = LMUI.send_model_request(command_context, model, "Follow-up response from model", output_file)
+        final_response = follow_up
+      end
     end
 
     final_response
@@ -111,7 +113,7 @@ module LMPlanner
         break if user_response == "exit"
 
         # Initialize workspace if empty
-        workspace.system_prompt = LMRoutines::SKELETON_WORKSPACE if workspace.system_prompt.empty?
+        workspace.system_prompt = LMPrompts::SKELETON_WORKSPACE if workspace.system_prompt.empty?
         [work_output_file, command_output_file, followup_output_file, reflection_output_file].each do |file|
           File.write(file, "")
 
@@ -136,27 +138,28 @@ module LMPlanner
           workspace,
           {
             :include_workspace => "yes",
-            :include_grounding => LMRoutines::MODEL_GROUNDING,
-            :user_query        => "%%%USER QUERY%%%" + user_response + "\n",
-            :work_prompt       => LMRoutines::WORK_PROMPT,
+            :include_grounding => "yes",
+            :include_commands  => "yes"
           }
         )
-        work_context += Planner.generate_execution_sequence(workspace)
+        work_context += workspace.dump_nodes_for_llm
+        work_context += "%%%USER QUERY%%%" + user_response
+        work_context += LMPrompts::WORK_PROMPT
         LMUI.log_context(work_context, "Work Context", work_output_file) # writes context to output_file
         work_response = LMUI.send_model_request(work_context, model, "Work response from model", work_output_file) # writes result to output_file
 
         # ------------------------ #
         # STEP 2: Command Response #
         # ------------------------ #
-        previous_context = work_context
+        previous_context = work_response
         previous_context += "%%%COMMAND INSTRUCTIONS%%% Your response to the user is above. Use the JSON commands available to you to emit a single JSON command based on your response. Do not emit more than one command at a time. If there are no applicable commands based on the situation, just say that."
         command_context = LMRoutines.build_model_context(
           workspace,
           {
-            :include_grounding => LMRoutines::MODEL_GROUNDING,
-            :include_commands => "yes",
-            :user_query => previous_context,
-            :work_prompt => ""
+            :include_grounding => "yes",
+            :include_commands  => "yes",
+            :user_query        => previous_context,
+            :work_prompt       => ""
           }
         )
         LMUI.log_context(command_context, "Command Context", command_output_file)
@@ -176,12 +179,12 @@ module LMPlanner
           workspace,
           {
             :include_workspace => "yes",
-            :include_grounding => LMRoutines::MODEL_GROUNDING,
+            :include_grounding => "yes",
             :previous_message  => "%%%MY PREVIOUS MESSAGE%%%" + final_response + "\n",
-            :reflection_prompt => LMRoutines::REFLECTION_PROMPT,
+            :reflection_prompt => LMPrompts::REFLECTION_PROMPT,
           }
         )
-
+        LMUI.log_context(reflection_context, "Reflection Context", reflection_output_file)
         # Send reflection request to model
         reflection_response = LMUI.send_model_request(reflection_context, model, "Reflection response from model", reflection_output_file)
 

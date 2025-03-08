@@ -5,6 +5,7 @@ require "../src/lm_ui"
 require "../src/lm_planner"
 require "../src/workspace"
 require "../src/node"
+require "../src/lm_prompts"
 
 # Mock for LlamaClient to avoid real API calls during tests
 module LlamaClient
@@ -13,7 +14,7 @@ module LlamaClient
   class_property reflection_response : String = "Reflection response"
   
   def self.send_text(prompt : String, model : String, api_url : String = "http://localhost:11434/api/generate")
-    if prompt.includes?(LMRoutines::REFLECTION_PROMPT)
+    if prompt.includes?(LMPrompts::REFLECTION_PROMPT)
       return @@reflection_response
     elsif !@@work_responses.empty?
       return @@work_responses.shift
@@ -76,8 +77,8 @@ describe LMRoutines do
   #     )
   #     
   #     context.should contain("%%%WORKSPACE%%%Test workspace prompt")
-  #     context.should contain(LMRoutines::MODEL_GROUNDING)
-  #     context.should contain(LMCommandProcessor::COMMAND_INSTRUCTIONS)
+  #     context.should contain(LMPrompts::MODEL_GROUNDING)
+  #     context.should contain(LMPrompts::COMMAND_INSTRUCTIONS)
   #     context.should contain("Custom content")
   #   end
   # end

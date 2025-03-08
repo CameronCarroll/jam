@@ -1,50 +1,18 @@
 require "./workspace"
 require "json"
+require "./lm_prompts"
 
 # Module for processing JSON commands from model responses
 module LMCommandProcessor
-  # JSON command pattern to detect and execute commands in model responses
-  # Giving the LM a few chances. Ours ain't that smart.
-  JSON_CMD_PATTERN  = /<JSON_CMD>(.+?)<END_JSON_CMD>/m
-  JSON_CMD_PATTERN2 = /<JSON_CMD>(.+?)<\/JSON_CMD>/m
-  JSON_CMD_PATTERN3 = /<JSON_CMD>(.+?)<\/END_JSON_CMD>/m
-
-  # Command instructions for the model to use JSON commands
-  COMMAND_INSTRUCTIONS = "You can execute commands by including JSON in this format:
-<JSON_CMD>{\"action\": \"command_name\", \"parameters\": {\"param1\": \"value1\"}}<END_JSON_CMD>
-
-You can also execute multiple commands at once using an array:
-<JSON_CMD>[
-  {\"action\": \"command_name1\", \"parameters\": {\"param1\": \"value1\"}},
-  {\"action\": \"command_name2\", \"parameters\": {\"param1\": \"value1\"}}
-]<END_JSON_CMD>
-
-Available commands:
-- list_nodes: Lists all nodes in the workspace
-- add_node: Creates a new node (params: name, description)
-- get_node: Gets details of a specific node (params: either index or id)
-- update_node: Updates a node's properties (params: either index or id, plus name?, description?)
-- delete_node: Removes a node (params: either index or id)
-- add_relationship: Creates a dependency between nodes (params: either parent_index & child_index or parent_id & child_id)
-- execution_sequence: Creates an execution sequence based on dependencies
-- show_dependencies: Shows the dependency graph
-
-Notes:
-- Index refers to the display order of nodes (0-based) as shown in the list_nodes output
-- ID refers to the unique UUID identifier assigned to each node at creation.
-- You need to remember to include <JSON_CMD> and <END_JSON_CMD>.
-- You need to include the 'parameters' key even when it's empty.
-- For multiple commands, they will be executed in order, and all results will be shown.
-- Do not include explanations or additional text. Only output the intended command(s)."
 
   # Processes any JSON commands found in the model's response
   # Returns the command result if a command was processed, nil otherwise
   # If command_history is provided, stores the command in the history
   # Now supports both single command objects and arrays of command objects
   def self.process_json_commands(response : String, workspace : Workspace, command_history : Array(Hash(String, JSON::Any))? = nil) : String?
-    match = response.match(JSON_CMD_PATTERN) ||
-            response.match(JSON_CMD_PATTERN2) ||
-            response.match(JSON_CMD_PATTERN3)
+    match = response.match(LMPrompts::JSON_CMD_PATTERN) ||
+            response.match(LMPrompts::JSON_CMD_PATTERN2) ||
+            response.match(LMPrompts::JSON_CMD_PATTERN3)
     return nil unless match
 
     json_str = match[1]
@@ -147,7 +115,7 @@ Notes:
     end
   end
 
-  # Handle node update by either index or ID
+  # Handle node update by either index or uuid
   private def self.handle_update_node(parameters : JSON::Any, workspace : Workspace) : String
     name = parameters["name"]?.try(&.as_s)
     description = parameters["description"]?.try(&.as_s)
@@ -163,19 +131,19 @@ Notes:
       else
         "Node not found at index: #{index}"
       end
-    elsif parameters["id"]?
-      id = parameters["id"].as_s
-      node = workspace.get_node_by_id(id)
+    elsif parameters["uuid"]?
+      uuid = parameters["uuid"].as_s
+      node = workspace.get_node_by_id(uuid)
       if node
         node.name = name if name
         node.description = description if description
         workspace.save_config
-        "Node updated with ID: #{id}"
+        "Node updated with ID: #{uuid}"
       else
-        "Node not found with ID: #{id}"
+        "Node not found with ID: #{uuid}"
       end
     else
-      "Error: Missing node identifier (index or id)"
+      "Error: Missing node identifier (index or uuid)"
     end
   end
 
@@ -243,7 +211,7 @@ Notes:
       command_context = LMRoutines.build_model_context(
         workspace,
         {
-          :include_grounding => LMRoutines::MODEL_GROUNDING,
+          :include_grounding => "yes",
           :include_commands  => "yes",
           :include_workspace => "yes",
           :previous_response => "Your response: #{response}\n",
@@ -269,7 +237,7 @@ Notes:
       #   command_context = LMRoutines.build_model_context(
       #     workspace,
       #     {
-      #       :include_grounding     => LMRoutines::MODEL_GROUNDING,
+      #       :include_grounding     => "yes",
       #       :include_commands      => "yes",
       #       :include_workspace     => "yes",
       #       :previous_conversation => "%%%PREVIOUS CONVERSATION%%%\nYour last response: #{final_response}\n",

@@ -127,8 +127,7 @@ class Workspace
     def dump_nodes_for_llm : String
       superbigstring = String.new
       @nodes.each do |node|
-        superbigstring += node.name
-        superbigstring += node.description
+        superbigstring += node.name + " " + node.id + "\n"
       end
       return superbigstring
     end
