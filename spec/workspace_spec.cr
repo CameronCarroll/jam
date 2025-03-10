@@ -12,6 +12,8 @@ describe Workspace do
       workspace.name.should eq("My Workspace Name")
       workspace.nodes.should be_empty
       workspace.system_prompt.should eq("")
+      workspace.modeldata.should be_a(Hash(String, String))
+      workspace.modeldata.should be_empty
     end
 
     it "creates a Workspace with a name and system prompt" do
@@ -19,6 +21,8 @@ describe Workspace do
       workspace.name.should eq("My Workspace Name")
       workspace.nodes.should be_empty
       workspace.system_prompt.should eq("System prompt for tests")
+      workspace.modeldata.should be_a(Hash(String, String))
+      workspace.modeldata.should be_empty
     end
   end
 
@@ -37,6 +41,8 @@ describe Workspace do
     it "saves the workspace configuration to a JSON file" do
         workspace = Workspace.new("Test Workspace",config_path) # Pass ONFIG_FILE_TEST here
         workspace.system_prompt = "Test system prompt"
+        workspace.modeldata["last_stable_prompt"] = "Stable prompt"
+        workspace.modeldata["test_key"] = "test_value"
         node1 = Node.new("Node 1", "Description 1", "node_id_1")
         node2 = Node.new("Node 2", "Description 2", "node_id_2", ["node_id_1"], ["node_id_3"], ["req_1"], ["goal_1"])
         workspace.add_node(node1)
@@ -50,6 +56,9 @@ describe Workspace do
 
         workspace_data["name"].should eq("Test Workspace")
         workspace_data["system_prompt"].should eq("Test system prompt")
+        workspace_data["modeldata"].should be_a(JSON::Any)
+        workspace_data["modeldata"]["last_stable_prompt"].should eq("Stable prompt")
+        workspace_data["modeldata"]["test_key"].should eq("test_value")
         nodes = workspace_data["nodes"]
         nodes.size.should eq(2)
 
@@ -65,6 +74,10 @@ end
       json_content = {
         "name" => "Loaded Workspace",
         "system_prompt" => "Loaded system prompt",
+        "modeldata" => {
+          "last_stable_prompt" => "Loaded stable prompt",
+          "test_key" => "loaded_test_value"
+        },
         "nodes" => [
           {
             "id" => "loaded_node_id_1",
@@ -93,6 +106,9 @@ end
 
       workspace.name.should eq("Loaded Workspace")
       workspace.system_prompt.should eq("Loaded system prompt")
+      workspace.modeldata.size.should eq(2)
+      workspace.modeldata["last_stable_prompt"].should eq("Loaded stable prompt")
+      workspace.modeldata["test_key"].should eq("loaded_test_value")
       workspace.nodes.size.should eq(2)
 
       node1 = workspace.nodes[0]
@@ -118,12 +134,12 @@ end
   describe "#dump_nodes_for_llm" do
     it "dumps the context of all nodes into a single string for LLM" do
       workspace = Workspace.new("Test Workspace", config_path)
-      node1 = Node.new("Node 1", "Description 1")
-      node2 = Node.new("Node 2", "Description 2")
+      node1 = Node.new("Node 1", "Description 1", "test_id_1")
+      node2 = Node.new("Node 2", "Description 2", "test_id_2")
       workspace.add_node(node1)
       workspace.add_node(node2)
 
-      expected_output = "Node 1Description 1Node 2Description 2"
+      expected_output = "Node 1 test_id_1\nNode 2 test_id_2\n"
       workspace.dump_nodes_for_llm.should eq(expected_output)
     end
 

@@ -2,6 +2,11 @@ require "./workspace"
 require "json"
 require "./lm_prompts"
 
+JSON_CMD_PATTERN  = /<JSON_CMD>(.+?)<END_JSON_CMD>/m
+JSON_CMD_PATTERN2 = /<JSON_CMD>(.+?)<\/JSON_CMD>/m
+JSON_CMD_PATTERN3 = /<JSON_CMD>(.+?)<\/END_JSON_CMD>/m
+JSON_CMD_PATTERN4 = /<JSON_CMD>(.+?)<\/JSON_CMD_END>/m
+
 # Module for processing JSON commands from model responses
 module LMCommandProcessor
 
@@ -10,13 +15,16 @@ module LMCommandProcessor
   # If command_history is provided, stores the command in the history
   # Now supports both single command objects and arrays of command objects
   def self.process_json_commands(response : String, workspace : Workspace, command_history : Array(Hash(String, JSON::Any))? = nil) : String?
-    match = response.match(LMPrompts::JSON_CMD_PATTERN) ||
-            response.match(LMPrompts::JSON_CMD_PATTERN2) ||
-            response.match(LMPrompts::JSON_CMD_PATTERN3)
+    match = response.match(JSON_CMD_PATTERN) ||
+            response.match(JSON_CMD_PATTERN2) ||
+            response.match(JSON_CMD_PATTERN3) ||
+            response.match(JSON_CMD_PATTERN4)
     return nil unless match
-
+    
     json_str = match[1]
     begin
+      puts "DEBUG:"
+      puts json_str
       parsed_data = JSON.parse(json_str)
       
       # Handle array of commands
@@ -87,6 +95,8 @@ module LMCommandProcessor
       Planner.generate_execution_sequence(workspace)
     when "show_dependencies"
       Planner.dump_dependency_graph(workspace)
+    when "trivia"
+      get_trivia()
     else
       "Unknown command: #{action}"
     end
@@ -104,6 +114,14 @@ module LMCommandProcessor
       end
     elsif parameters["id"]?
       id = parameters["id"].as_s
+      node = workspace.get_node_by_id(id)
+      if node
+        node.to_json
+      else
+        "Node not found with ID: #{id}"
+      end
+    elsif parameters["uuid"]?
+      id = parameters["uuid"].as_s
       node = workspace.get_node_by_id(id)
       if node
         node.to_json
@@ -265,6 +283,26 @@ module LMCommandProcessor
       # Format parameters for nicer display
       params_display = params.as_h.map { |k, v| "#{k}: #{v}" }.join(", ")
       io.puts "#{index + 1}. #{action}#{params_display.empty? ? "" : " (#{params_display})"}"
+    end
+  end
+
+  def self.get_trivia
+    url = "https://opentdb.com/api.php?amount=3&category=17&difficulty=medium&type=multiple"
+    response = HTTP::Client.get(url)
+    
+    if response.status_code == 200
+      begin
+        json_data = JSON.parse(response.body)
+        return json_data.to_json
+      rescue ex : JSON::ParseException
+        puts "Error parsing JSON response: #{ex.message}"
+        puts "Response body: #{response.body}"
+        return ""
+      end
+    else
+      puts "HTTP Request failed with status code: #{response.status_code}"
+      puts "Response body: #{response.body}"
+      return ""
     end
   end
 end

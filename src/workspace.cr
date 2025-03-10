@@ -26,6 +26,9 @@ class Workspace
 
     # System prompt / workspace for LLM
     property system_prompt : String
+    
+    # Key-value storage for model-related data
+    property modeldata : Hash(String, String)
   
     # Initializes a new Workspace
     def initialize(@name : String, @config_path : Path, @system_prompt = "")
@@ -33,6 +36,7 @@ class Workspace
       @config_path = config_path
       @system_prompt = system_prompt
       @nodes = [] of Node
+      @modeldata = {} of String => String
     end
   
     # Adds a node to the workspace.
@@ -51,6 +55,7 @@ class Workspace
       workspace_data = {
         "name" => @name,
         "system_prompt" => @system_prompt,
+        "modeldata" => @modeldata,
         "nodes" => [] of Hash(String, String | Array(String))
       }
       nodes_array = workspace_data["nodes"].as(Array(Hash(String, String | Array(String))))
@@ -80,13 +85,22 @@ class Workspace
     def read_config : Nil
       begin
         jason_content = File.read(@config_path)
-        workspace_data = Hash(String, String | Array(Hash(String, String | Array(String)))).from_json(jason_content)
+        workspace_data = Hash(String, String | Hash(String, String) | Array(Hash(String, String | Array(String)))).from_json(jason_content)
 
         raise ConfigError.new("Expected a hash for workspace config") unless workspace_data.is_a?(Hash)
         raise ConfigError.new("Expected a string for workspace name") unless workspace_data["name"].is_a?(String)
         @name = workspace_data["name"].to_s
         @system_prompt = workspace_data["system_prompt"].to_s
         raise ConfigError.new("Expected a string for system prompt") unless @system_prompt.is_a?(String)
+        
+        # Load modeldata if it exists
+        if modeldata_json = workspace_data["modeldata"]?
+          if modeldata_json.is_a?(Hash)
+            modeldata_json.each do |key, value|
+              @modeldata[key.to_s] = value.to_s
+            end
+          end
+        end
 
         nodes_data = workspace_data["nodes"]
         raise ConfigError.new("Expected a nodes array in config") unless nodes_data.is_a?(Array)

@@ -47,7 +47,10 @@ module LMUI
     context : String, 
     model : String, 
     label : String, 
-    output_file : String) : String
+    output_file : String,
+    temperature : Float64 = 0.6,
+    top_p : Float64 = 0.7,
+    max_tokens : Int32 = 700) : String
     response = LlamaClient.send_text(context, model)
 
     if response.is_a?(String)
@@ -69,18 +72,18 @@ module LMUI
     end
   end
 
-  # Write context to output file for logging
+  # Write string thing with string label to output file for logging
   #
   # Returns nil
-  def self.log_context(
-    context : String,
+  def self.log_thing(
+    thing : String,
     label : String,
     output_file : String)
     File.open(output_file, "a") do |file|
       file.puts get_ascii_divider()
       file.puts("#{label}")
       file.puts "-" * 80
-      file.puts context
+      file.puts thing
     end
   end
 end

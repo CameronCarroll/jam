@@ -12,7 +12,7 @@ require "./planner"
 require "./lmroutines"
 
 CONFIG_FILE = ".jam_config.json"
-MODEL = "phi4:latest"
+MODEL = "qwq:latest"
 
 # ---------------------------------------------------------------------
 

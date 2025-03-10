@@ -21,7 +21,7 @@ module LlamaClient
     #   puts generated_text
     # end
     # ```
-    def self.send_text(prompt : String, model : String, temperature : Float64 = 0.8, top_p : Float64 = 0.9, max_tokens : Int32 = 500, api_url : String = "http://localhost:11434/api/generate")
+    def self.send_text(prompt : String, model : String, temperature : Float64 = 0.6, top_p : Float64 = 0.7, max_tokens : Int32 = 700, api_url : String = "http://localhost:11434/api/generate")
         headers = HTTP::Headers{
           "Content-Type" => "application/json",
         }
