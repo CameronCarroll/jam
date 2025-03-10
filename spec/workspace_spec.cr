@@ -39,65 +39,65 @@ describe Workspace do
 
   describe "#save_config" do
     it "saves the workspace configuration to a JSON file" do
-        workspace = Workspace.new("Test Workspace",config_path) # Pass ONFIG_FILE_TEST here
-        workspace.system_prompt = "Test system prompt"
-        workspace.modeldata["last_stable_prompt"] = "Stable prompt"
-        workspace.modeldata["test_key"] = "test_value"
-        node1 = Node.new("Node 1", "Description 1", "node_id_1")
-        node2 = Node.new("Node 2", "Description 2", "node_id_2", ["node_id_1"], ["node_id_3"], ["req_1"], ["goal_1"])
-        workspace.add_node(node1)
-        workspace.add_node(node2)
-        workspace.save_config
+      workspace = Workspace.new("Test Workspace", config_path) # Pass ONFIG_FILE_TEST here
+      workspace.system_prompt = "Test system prompt"
+      workspace.modeldata["last_stable_prompt"] = "Stable prompt"
+      workspace.modeldata["test_key"] = "test_value"
+      node1 = Node.new("Node 1", "Description 1", "node_id_1")
+      node2 = Node.new("Node 2", "Description 2", "node_id_2", ["node_id_1"], ["node_id_3"], ["req_1"], ["goal_1"])
+      workspace.add_node(node1)
+      workspace.add_node(node2)
+      workspace.save_config
 
-        File.exists?(CONFIG_FILE_TEST).should be_true
-        
-        json_content = File.read(CONFIG_FILE_TEST)
-        workspace_data = JSON.parse(json_content)
+      File.exists?(CONFIG_FILE_TEST).should be_true
 
-        workspace_data["name"].should eq("Test Workspace")
-        workspace_data["system_prompt"].should eq("Test system prompt")
-        workspace_data["modeldata"].should be_a(JSON::Any)
-        workspace_data["modeldata"]["last_stable_prompt"].should eq("Stable prompt")
-        workspace_data["modeldata"]["test_key"].should eq("test_value")
-        nodes = workspace_data["nodes"]
-        nodes.size.should eq(2)
+      json_content = File.read(CONFIG_FILE_TEST)
+      workspace_data = JSON.parse(json_content)
 
-        node1_data = nodes[0]
-        node1_data["id"].should eq("node_id_1")
-        node1_data["name"].should eq("Node 1")
-        node1_data["description"].should eq("Description 1")
+      workspace_data["name"].should eq("Test Workspace")
+      workspace_data["system_prompt"].should eq("Test system prompt")
+      workspace_data["modeldata"].should be_a(JSON::Any)
+      workspace_data["modeldata"]["last_stable_prompt"].should eq("Stable prompt")
+      workspace_data["modeldata"]["test_key"].should eq("test_value")
+      nodes = workspace_data["nodes"]
+      nodes.size.should eq(2)
+
+      node1_data = nodes[0]
+      node1_data["id"].should eq("node_id_1")
+      node1_data["name"].should eq("Node 1")
+      node1_data["description"].should eq("Description 1")
     end
-end
+  end
 
   describe "#read_config" do
     it "reads workspace configuration from a JSON file" do
       json_content = {
-        "name" => "Loaded Workspace",
+        "name"          => "Loaded Workspace",
         "system_prompt" => "Loaded system prompt",
-        "modeldata" => {
+        "modeldata"     => {
           "last_stable_prompt" => "Loaded stable prompt",
-          "test_key" => "loaded_test_value"
+          "test_key"           => "loaded_test_value",
         },
         "nodes" => [
           {
-            "id" => "loaded_node_id_1",
-            "name" => "Loaded Node 1",
-            "description" => "Loaded Description 1",
-            "predecessors" => ["pred_1"],
-            "successors" => ["succ_1"],
+            "id"              => "loaded_node_id_1",
+            "name"            => "Loaded Node 1",
+            "description"     => "Loaded Description 1",
+            "predecessors"    => ["pred_1"],
+            "successors"      => ["succ_1"],
             "requirement_ids" => ["req_1"],
-            "goal_ids" => ["goal_1"]
+            "goal_ids"        => ["goal_1"],
           },
           {
-            "id" => "loaded_node_id_2",
-            "name" => "Loaded Node 2",
-            "description" => "Loaded Description 2",
-            "predecessors" => [] of String,
-            "successors" => [] of String,
+            "id"              => "loaded_node_id_2",
+            "name"            => "Loaded Node 2",
+            "description"     => "Loaded Description 2",
+            "predecessors"    => [] of String,
+            "successors"      => [] of String,
             "requirement_ids" => [] of String,
-            "goal_ids" => [] of String
-          }
-        ]
+            "goal_ids"        => [] of String,
+          },
+        ],
       }.to_json
       File.write(CONFIG_FILE_TEST, json_content)
 
@@ -209,9 +209,9 @@ end
       workspace.add_node(node1)
       initial_nodes = workspace.nodes # Capture initial nodes
 
-      workspace.remove_node_by_index(99) # Out of bounds index
+      workspace.remove_node_by_index(99)       # Out of bounds index
       workspace.nodes.should eq(initial_nodes) # Nodes array should remain unchanged
-      workspace.remove_node_by_index(-1) # Negative index
+      workspace.remove_node_by_index(-1)       # Negative index
       workspace.nodes.should eq(initial_nodes) # Nodes array should remain unchanged
     end
   end
@@ -237,11 +237,11 @@ end
     end
 
     it "handles whitespace in node IDs correctly" do
-       workspace = Workspace.new("Test Workspace", config_path)
+      workspace = Workspace.new("Test Workspace", config_path)
       node1 = Node.new("Node 1", "Description 1", "  node_id_1  ") # ID with whitespace
       workspace.add_node(node1)
 
-      workspace.get_node_by_id("node_id_1").should eq(node1) # Search without whitespace
+      workspace.get_node_by_id("node_id_1").should eq(node1)     # Search without whitespace
       workspace.get_node_by_id("  node_id_1  ").should eq(node1) # Search with whitespace
     end
   end
@@ -269,19 +269,19 @@ end
       # This test is a placeholder since the create_dependency method
       # already requires non-nil Node objects for both parameters
       # and Crystal's type system ensures this at compile time
-      
+
       # We can still confirm the method works with valid nodes
       workspace = Workspace.new("Test Workspace", config_path)
       node1 = Node.new("Node 1", "Description 1", "node_id_1")
       node2 = Node.new("Node 2", "Description 2", "node_id_2")
       workspace.add_node(node1)
       workspace.add_node(node2)
-      
+
       # This should succeed
       success, message = workspace.create_dependency(node1, node2)
       success.should be_true
       message.should eq("")
-      
+
       # Reset for next test
       node1.successors.clear
       node2.predecessors.clear
@@ -304,7 +304,7 @@ end
       node1.successors.should be_empty
       node2.predecessors.should be_empty
 
-       # Verify config file is saved (optional, but good practice for methods that modify workspace state)
+      # Verify config file is saved (optional, but good practice for methods that modify workspace state)
       File.exists?(CONFIG_FILE_TEST).should be_true
     end
 
@@ -316,11 +316,11 @@ end
       success1, message1 = workspace.remove_dependency("non_existent_id", "node_id_1")
       success1.should be_false
       message1.should_not be_empty
-      
+
       success2, message2 = workspace.remove_dependency("node_id_1", "non_existent_id")
       success2.should be_false
       message2.should_not be_empty
-      
+
       success3, message3 = workspace.remove_dependency("non_existent_id_1", "non_existent_id_2")
       success3.should be_false
       message3.should_not be_empty
@@ -356,7 +356,7 @@ end
       successors.size.should eq(2)
       successors.should be_a(Array(Node))
       successors.first.name.should eq("Node 2")
-      successors.last.name.should eq("Node 3")  
+      successors.last.name.should eq("Node 3")
     end
 
     it "returns an empty array if the node has no successors" do
@@ -391,7 +391,7 @@ end
       predecessors.size.should eq(2)
       predecessors.should be_a(Array(Node))
       predecessors.first.name.should eq("Node 1")
-      predecessors.last.name.should eq("Node 2")  
+      predecessors.last.name.should eq("Node 2")
     end
 
     it "returns an empty array if the node has no predecessors" do

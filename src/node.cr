@@ -12,123 +12,122 @@ require "json"
 #
 # `Workspace` provides data access and dependency-tree level methods.
 class Node
+  # Human-readable name or short description for this task/node
+  #
+  # Required but may be left as ""
+  property name : String
 
-    # Human-readable name or short description for this task/node
-    #
-    # Required but may be left as ""
-    property name : String
+  # Set/return the description of the node.
+  #
+  # Required but may be left as ""
+  property description : String
 
-    # Set/return the description of the node.
-    #
-    # Required but may be left as ""
-    property description : String
+  # Unique ID for internal references
+  #
+  # Required but will be assigned automatically at instantiation if it doesn't exist already.
+  property id : String
 
-    # Unique ID for internal references
-    #
-    # Required but will be assigned automatically at instantiation if it doesn't exist already.
-    property id : String
+  # Set/return a list of predecessor nodes
+  # (ie, nodes that must be completed before this one can start)
+  #
+  # Optional (defaults to empty array)
+  property predecessors : Array(String)
 
-    # Set/return a list of predecessor nodes
-    # (ie, nodes that must be completed before this one can start)
-    #
-    # Optional (defaults to empty array)
-    property predecessors : Array(String)
+  # Set/return a list of successor nodes
+  # (ie, nodes that cannot start until this one is finished)
+  #
+  # Optional (defaults to empty array)
+  property successors : Array(String)
 
-    # Set/return a list of successor nodes
-    # (ie, nodes that cannot start until this one is finished)
-    #
-    # Optional (defaults to empty array)
-    property successors : Array(String)
+  # Set/return a list of requirement IDs associated with this node/task
+  #
+  # Optional (defaults to empty array)
+  property requirement_ids : Array(String)
 
-    # Set/return a list of requirement IDs associated with this node/task
-    #
-    # Optional (defaults to empty array)
-    property requirement_ids : Array(String)
+  # Set/return a list of goal IDs associated with this node/task
+  #
+  # Optional (defaults to empty array)
+  property goal_ids : Array(String)
 
-    # Set/return a list of goal IDs associated with this node/task
-    #
-    # Optional (defaults to empty array)
-    property goal_ids : Array(String)
+  # Initializes a new `Node` with at minimum a name and description.
+  #
+  # Auto assigns a UUID if not provided.
+  #
+  # Remaining arguments (predecessors/successors/requirements/goals) are optional.
+  def initialize(
+    @name : String,
+    @description : String,
+    @id : String = UUID.random.to_s,
+    @predecessors = [] of String,
+    @successors = [] of String,
+    @requirement_ids = [] of String,
+    @goal_ids = [] of String,
+  )
+  end
 
-    # Initializes a new `Node` with at minimum a name and description.
-    #
-    # Auto assigns a UUID if not provided.
-    #
-    # Remaining arguments (predecessors/successors/requirements/goals) are optional.
-    def initialize(
-        @name : String,
-        @description : String,
-        @id : String = UUID.random.to_s,
-        @predecessors = [] of String,
-        @successors = [] of String,
-        @requirement_ids = [] of String,
-        @goal_ids = [] of String
-    )
+  # Associates a predecessor to this node based on its *node_id*
+  def add_predecessor(node_id : String)
+    @predecessors << node_id unless @predecessors.includes?(node_id)
+  end
+
+  # Removes a predecessor task from this node's associations based on its *node_id*
+  def remove_predecessor(node_id : String)
+    @predecessors.delete(node_id)
+  end
+
+  # Associates a successor to this node based on its *node_id*
+  def add_successor(node_id : String)
+    @successors << node_id unless @successors.includes?(node_id)
+  end
+
+  # Removes a successor task from this node's associations based on its *node_id*
+  def remove_successor(node_id : String)
+    @successors.delete(node_id)
+  end
+
+  # Associates a requirement ID to this node based on its *node_id*
+  #
+  # (A requirement is just another node intended to be a leaf node.)
+  def add_requirement(node_id : String)
+    @requirement_ids << node_id unless @requirement_ids.includes?(node_id)
+  end
+
+  # Removes a requirement ID from this node's associations based on its `node_id`
+  def remove_requirement(node_id : String)
+    @requirement_ids.delete(node_id)
+  end
+
+  # Associates a goal to this node based on the goal's *node_id*
+  #
+  # (A goal is just another node intended to be a a root node.)
+  def add_goal(node_id : String)
+    @goal_ids << node_id unless @goal_ids.includes?(node_id)
+  end
+
+  # Removes a goal from this node's associations based on the goal's *node_id*
+  def remove_goal(node_id : String)
+    @goal_ids.delete(node_id)
+  end
+
+  # Converts the node to JSON format
+  def to_json(json : JSON::Builder)
+    json.object do
+      json.field("id", @id)
+      json.field("name", @name)
+      json.field("description", @description)
+      json.field("predecessors", @predecessors)
+      json.field("successors", @successors)
+      json.field("requirement_ids", @requirement_ids)
+      json.field("goal_ids", @goal_ids)
     end
+  end
 
-    # Associates a predecessor to this node based on its *node_id*
-    def add_predecessor(node_id : String)
-        @predecessors << node_id unless @predecessors.includes?(node_id)
-    end
-
-    # Removes a predecessor task from this node's associations based on its *node_id*
-    def remove_predecessor(node_id : String)
-        @predecessors.delete(node_id)
-    end
-
-    # Associates a successor to this node based on its *node_id*
-    def add_successor(node_id : String)
-        @successors << node_id unless @successors.includes?(node_id)
-    end
-
-    # Removes a successor task from this node's associations based on its *node_id*
-    def remove_successor(node_id : String)
-        @successors.delete(node_id)
-    end
-
-    # Associates a requirement ID to this node based on its *node_id*
-    #
-    # (A requirement is just another node intended to be a leaf node.)
-    def add_requirement(node_id : String)
-        @requirement_ids << node_id unless @requirement_ids.includes?(node_id)
-    end
-
-    # Removes a requirement ID from this node's associations based on its `node_id`
-    def remove_requirement(node_id : String)
-        @requirement_ids.delete(node_id)
-    end
-
-    # Associates a goal to this node based on the goal's *node_id*
-    #
-    # (A goal is just another node intended to be a a root node.)
-    def add_goal(node_id : String)
-        @goal_ids << node_id unless @goal_ids.includes?(node_id)
-    end
-
-    # Removes a goal from this node's associations based on the goal's *node_id*
-    def remove_goal(node_id : String)
-        @goal_ids.delete(node_id)
-    end
-    
-    # Converts the node to JSON format
-    def to_json(json : JSON::Builder)
-      json.object do
-        json.field("id", @id)
-        json.field("name", @name)
-        json.field("description", @description)
-        json.field("predecessors", @predecessors)
-        json.field("successors", @successors)
-        json.field("requirement_ids", @requirement_ids)
-        json.field("goal_ids", @goal_ids)
-      end
-    end
-    
-    # Returns a JSON string representation of the node
-    def to_json : String
-      String.build do |str|
-        JSON.build(str) do |json|
-          to_json(json)
-        end
+  # Returns a JSON string representation of the node
+  def to_json : String
+    String.build do |str|
+      JSON.build(str) do |json|
+        to_json(json)
       end
     end
   end
+end

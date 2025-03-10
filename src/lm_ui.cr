@@ -21,11 +21,12 @@ module LMUI
   # Cycles through multiple divider styles
   def self.get_ascii_divider(divider_type : Symbol = :random) : String
     dividers = {
-      cat: "=^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=",
-      stars: "★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★",
-      hearts: "♥•*¨*•.¸¸♥•*¨*•.¸¸♥•*¨*•.¸¸♥•*¨*•.¸¸♥•*¨*•.¸¸♥•*¨*•.¸¸♥",
+      cat:     "=^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=",
+      stars:   "★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★",
+      hearts:  "♥•*¨*•.¸¸♥•*¨*•.¸¸♥•*¨*•.¸¸♥•*¨*•.¸¸♥•*¨*•.¸¸♥•*¨*•.¸¸♥",
       flowers: "✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀✿❀",
-      bubbles: "°o○●○o°°o○●○o°°o○●○o°°o○●○o°°o○●○o°°o○●○o°°o○●○o°°o○●○o°"}
+      bubbles: "°o○●○o°°o○●○o°°o○●○o°°o○●○o°°o○●○o°°o○●○o°°o○●○o°°o○●○o°",
+    }
 
     if divider_type == :random
       # Pick a random divider
@@ -39,18 +40,19 @@ module LMUI
       return dividers[:stars]
     end
   end
-  
+
   # Send request to model and write response to output file (along with some pretty ASCII dividers)
   #
   # Returns a String with the model response.
   def self.send_model_request(
-    context : String, 
-    model : String, 
-    label : String, 
+    context : String,
+    model : String,
+    label : String,
     output_file : String,
     temperature : Float64 = 0.6,
     top_p : Float64 = 0.7,
-    max_tokens : Int32 = 700) : String
+    max_tokens : Int32 = 700,
+  ) : String
     response = LlamaClient.send_text(context, model)
 
     if response.is_a?(String)
@@ -68,7 +70,7 @@ module LMUI
 
       return response
     else
-      raise LMRoutines::ModelError.new("Problem with response from the model.")
+      raise LMFlow::ModelError.new("Problem with response from the model.")
     end
   end
 
@@ -78,7 +80,8 @@ module LMUI
   def self.log_thing(
     thing : String,
     label : String,
-    output_file : String)
+    output_file : String,
+  )
     File.open(output_file, "a") do |file|
       file.puts get_ascii_divider()
       file.puts("#{label}")

@@ -12,7 +12,7 @@ require "./planner"
 require "./lmroutines"
 
 CONFIG_FILE = ".jam_config.json"
-MODEL = "qwq:latest"
+MODEL       = "qwq:latest"
 
 # ---------------------------------------------------------------------
 
@@ -33,28 +33,28 @@ workspace = Workspace.new("LLM Project", config_path)
 # Load config file and nodes into workspace
 workspace.read_config
 
-#--------------------------------------------
+# --------------------------------------------
 humaninloop = false
 chatloop = false
 nodeedit = false
 execution_plan = false
 
 parser = OptionParser.new do |parser|
-parser.banner = "Usage: jam [command]"
-parser.on("humaninloop", "Workspace planner with human in the loop") do
-  humaninloop = true
-end
-parser.on("chatloop", "Enter into a blank chat with default model") do
-  chatloop = true
-end
-parser.on("nodes", "CLI REPL to make updates to node entries") do
-  nodeedit = true
-  parser.banner = "Usage: jam nodes [argument]"
-  parser.on("-n NAME", "--new NAME", "Add a name for the node entry") { |_name| name = _name}
-end
-parser.on("plan", "Generate and print an execution plan from the current workspace config") do
-  execution_plan = true
-end
+  parser.banner = "Usage: jam [command]"
+  parser.on("humaninloop", "Workspace planner with human in the loop") do
+    humaninloop = true
+  end
+  parser.on("chatloop", "Enter into a blank chat with default model") do
+    chatloop = true
+  end
+  parser.on("nodes", "CLI REPL to make updates to node entries") do
+    nodeedit = true
+    parser.banner = "Usage: jam nodes [argument]"
+    parser.on("-n NAME", "--new NAME", "Add a name for the node entry") { |_name| name = _name }
+  end
+  parser.on("plan", "Generate and print an execution plan from the current workspace config") do
+    execution_plan = true
+  end
 end
 
 parser.parse

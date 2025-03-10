@@ -9,7 +9,6 @@ JSON_CMD_PATTERN4 = /<JSON_CMD>(.+?)<\/JSON_CMD_END>/m
 
 # Module for processing JSON commands from model responses
 module LMCommandProcessor
-
   # Processes any JSON commands found in the model's response
   # Returns the command result if a command was processed, nil otherwise
   # If command_history is provided, stores the command in the history
@@ -20,51 +19,51 @@ module LMCommandProcessor
             response.match(JSON_CMD_PATTERN3) ||
             response.match(JSON_CMD_PATTERN4)
     return nil unless match
-    
+
     json_str = match[1]
     begin
       puts "DEBUG:"
       puts json_str
       parsed_data = JSON.parse(json_str)
-      
+
       # Handle array of commands
       if parsed_data.as_a?
         commands = parsed_data.as_a
-        
+
         if commands.empty?
           return "No commands to execute"
         end
-        
+
         results = [] of String
-        
+
         commands.each do |cmd_data|
           action = cmd_data["action"].as_s
           parameters = cmd_data["parameters"]
-          
+
           # Add to command history if tracking is enabled
           if command_history
             command_history << {"action" => JSON::Any.new(action), "parameters" => parameters}
           end
-          
+
           # Execute the requested command based on action type
           result = execute_command(action, parameters, workspace)
           results << "Command result for '#{action}':\n#{result}"
         end
-        
+
         return results.join("\n\n")
       else
         # Handle single command (original functionality)
         action = parsed_data["action"].as_s
         parameters = parsed_data["parameters"]
-        
+
         # Add to command history if tracking is enabled
         if command_history
           command_history << {"action" => JSON::Any.new(action), "parameters" => parameters}
         end
-        
+
         # Execute the requested command based on action type
         result = execute_command(action, parameters, workspace)
-        
+
         return "Command result for '#{action}':\n#{result}"
       end
     rescue e
@@ -211,7 +210,8 @@ module LMCommandProcessor
     response : String,
     workspace : Workspace,
     model : String,
-    command_history : Array(Hash(String, JSON::Any))? = nil) : String
+    command_history : Array(Hash(String, JSON::Any))? = nil,
+  ) : String
     final_response = response
 
     # Check for any commands in the initial response
@@ -289,7 +289,7 @@ module LMCommandProcessor
   def self.get_trivia
     url = "https://opentdb.com/api.php?amount=3&category=17&difficulty=medium&type=multiple"
     response = HTTP::Client.get(url)
-    
+
     if response.status_code == 200
       begin
         json_data = JSON.parse(response.body)

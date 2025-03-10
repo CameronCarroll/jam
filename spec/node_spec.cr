@@ -16,7 +16,7 @@ describe Node do
         requirement_ids: ["reqirem 1", "reqirem 2"],
         goal_ids: ["goal1", "goal 2"]
       )
- 
+
       node.name.should eq("Test node")
       node.description.should eq("A multiline \n description.")
       node.id.should eq("7b6dfa4f-ad25-4009-8dda-b75c2993f49e")
