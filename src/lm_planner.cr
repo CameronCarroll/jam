@@ -58,7 +58,8 @@ module LMPlanner
       model,
       command_output_file,
       followup_output_file,
-      command_history
+      command_flow,
+      command_history,
     )
     reflection_flow = ReflectionFlow.new(workspace, model, reflection_output_file)
 

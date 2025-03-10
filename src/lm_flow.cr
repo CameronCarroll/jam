@@ -175,12 +175,14 @@ end
 class CommandProcessorFlow < LMFlow
   property command_history : Array(Hash(String, JSON::Any))?
   property followup_output_file : String
+  property command_generator : CommandGeneratorFlow
 
   def initialize(
     workspace : Workspace,
     model : String,
     output_file : String,
     @followup_output_file : String,
+    @command_generator : CommandGeneratorFlow,
     @command_history : Array(Hash(String, JSON::Any))? = nil,
     temperature : Float64 = 0.6,
     top_p : Float64 = 0.7,
@@ -192,7 +194,7 @@ class CommandProcessorFlow < LMFlow
   def process_output : String
     command_response = @output
     final_response = "Attempting to run tools... "
-
+    puts "DEBUG: Inside process_output block of our command processor"
     # Check for any commands in the initial response
     if cmd_result = LMCommandProcessor.process_json_commands(command_response, @workspace, @command_history)
       # Write command execution to file
@@ -233,8 +235,13 @@ class CommandProcessorFlow < LMFlow
         return follow_up
       end
 
+      followup_command_response = @command_generator.run(follow_up)
+      number_of_followups = 1
       # Process any additional commands in the follow-up response
-      while cmd_result = LMCommandProcessor.process_json_commands(final_response, @workspace, @command_history)
+      while cmd_result = LMCommandProcessor.process_json_commands(followup_command_response, @workspace, @command_history)
+        puts "Iteration number: #{number_of_followups}"
+        break if number_of_followups > 3
+        number_of_followups += 1
         # Write additional command execution to file
         File.open(@followup_output_file, "a") do |file|
           # Add a cute ASCII divider
@@ -264,14 +271,15 @@ class CommandProcessorFlow < LMFlow
         followup_command_context += "%%%ORIGINAL USER QUERY:%%%" + @workspace.modeldata["user_query"]
         followup_command_context += "%%%ULTIMATE OBJECTIVE:%%%" + @workspace.modeldata["northstar"]
         followup_command_context += "%%%YOUR FOLLOWUP COMMANDS%%% [This is where you should emit any follow-up commands in the proper JSON format. Say '<DONE>' if there is nothing else to do.]"
-        followup_command_context += "Say '<DONE>' if there is nothing else to do. Do not say '<DONE>' unless you are absolutely sure there are no additional actions to take.]"
 
         # Get another follow-up response
         follow_up = LMUI.send_model_request(command_context, @model, "Follow-up response from model", @followup_output_file)
-        final_response = follow_up
+        followup_command_response = @command_generator.run(follow_up)
+        final_response = followup_command_response
       end
     else
       final_response += "Unsuccessful tool execution?"
+      puts "Did not run any tools. (ELSE case of process_json_commands)"
     end
 
     return final_response

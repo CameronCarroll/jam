@@ -2,10 +2,7 @@ require "./workspace"
 require "json"
 require "./lm_prompts"
 
-JSON_CMD_PATTERN  = /<JSON_CMD>(.+?)<END_JSON_CMD>/m
-JSON_CMD_PATTERN2 = /<JSON_CMD>(.+?)<\/JSON_CMD>/m
-JSON_CMD_PATTERN3 = /<JSON_CMD>(.+?)<\/END_JSON_CMD>/m
-JSON_CMD_PATTERN4 = /<JSON_CMD>(.+?)<\/JSON_CMD_END>/m
+JSON_CMD_PATTERN  = /(?:<JSON_CMD>)([\s\S]*?)(?:<\/JSON_CMD>|<\/END_JSON_CMD>|<\/JSON_CMD_END>|<END_JSON_CMD>|<JSON_CMD_END>)/m
 
 # Module for processing JSON commands from model responses
 module LMCommandProcessor
@@ -14,10 +11,7 @@ module LMCommandProcessor
   # If command_history is provided, stores the command in the history
   # Now supports both single command objects and arrays of command objects
   def self.process_json_commands(response : String, workspace : Workspace, command_history : Array(Hash(String, JSON::Any))? = nil) : String?
-    match = response.match(JSON_CMD_PATTERN) ||
-            response.match(JSON_CMD_PATTERN2) ||
-            response.match(JSON_CMD_PATTERN3) ||
-            response.match(JSON_CMD_PATTERN4)
+    match = response.match(JSON_CMD_PATTERN)
     return nil unless match
 
     json_str = match[1]
