@@ -3,11 +3,11 @@ require "json"
 
 # Module for interacting with an ollama server.
 module LlamaClient
-  # Sends a text prompt to the Llama 2 API and returns the generated text.
+  # Sends a text prompt to the ollama API and returns the generated text.
   #
   # Parameters:
   # - `prompt`: The text prompt to send to the API.
-  # - `model`: The name of the Llama 2 model to use (e.g., "llama2").
+  # - `model`: The name of the model to use (e.g., "qwq:latest").
   # - `api_url`: (Optional) The URL of the Llama 2 API. Defaults to "http://localhost:11434/api/generate".
   #
   # Returns:

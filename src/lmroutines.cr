@@ -9,7 +9,7 @@ require "./lm_flow"
 # Core module for LLM-based interactions
 module LMRoutines
   # Default model to use for queries
-  DEFAULT_MODEL = "phi4:latest"
+  DEFAULT_MODEL = "gpt-oss:20b"
 
   # Runs a human-in-loop planning session with the LLM
   # Delegates to specialized components

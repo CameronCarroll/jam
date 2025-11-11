@@ -12,3 +12,4 @@ model_output.txt
 /shard.lock
 *.txt
 output/*
+jam

@@ -12,7 +12,7 @@ require "./planner"
 require "./lmroutines"
 
 CONFIG_FILE = ".jam_config.json"
-MODEL       = "qwq:latest"
+MODEL       = "gpt-oss:20b"
 
 # ---------------------------------------------------------------------
 
